@@ -23,12 +23,39 @@ VPS: **nova-02** (`95.215.206.161`), приложение в **`/opt/c-fab-app`*
    ./scripts/deploy-nova02.sh
    ```
    Скрипт: `rsync` → на сервере `nvm use 20` → `npm ci` → `prisma generate` → `next build` → `systemctl restart c-fab-app`.
-4. **Миграции БД** (если менялся `prisma/schema.prisma`) — один раз после деплоя на сервере:
+4. **База данных** — после первого деплоя с непустым `DATABASE_URL` см. раздел «База данных» ниже (`prisma migrate deploy`).
+5. **Проверка** — `ssh nova-02 'systemctl status c-fab-app --no-pager'`, затем в браузере `https://c-fab.nova01.click/`.
+
+## База данных (Neon / Postgres)
+
+В репозитории есть начальная миграция **`prisma/migrations/20260514230000_init/`** (таблицы User, Workspace, Project, привязки, LlmProfile).
+
+1. В [Neon](https://console.neon.tech) создай проект и скопируй **Connection string** (для serverless лучше **pooled** URI, с `sslmode=require` если не добавлен автоматически).
+2. В **`/opt/c-fab-app/.env`** на сервере (и в локальном `.env` для разработки) задай одну строку без кавычек:
+   ```bash
+   DATABASE_URL=postgresql://...neon.tech/neondb?sslmode=require
+   ```
+3. Применить схему на базе (на сервере, после того как `DATABASE_URL` непустой):
    ```bash
    ssh nova-02 'export NVM_DIR=/root/.nvm && . "$NVM_DIR/nvm.sh" && nvm use 20 && cd /opt/c-fab-app && set -a && . ./.env && set +a && npx prisma migrate deploy'
    ```
-   Либо `db push` только для dev/stage, если так договорились.
-5. **Проверка** — `ssh nova-02 'systemctl status c-fab-app --no-pager'`, затем в браузере `https://c-fab.nova01.click/`.
+4. Перезапуск приложения: `ssh nova-02 'systemctl restart c-fab-app'`.
+
+Пока `DATABASE_URL` пустой, Prisma на сервере миграции не применит — это нормально.
+
+## Проверить, что `.env` на сервере есть
+
+С локальной машины (ничего секретного не печатает):
+
+```bash
+ssh nova-02 'test -f /opt/c-fab-app/.env && echo OK || echo MISSING'
+```
+
+Посмотреть **только имена** переменных (без значений):
+
+```bash
+ssh nova-02 "grep -E '^[A-Z_]+=' /opt/c-fab-app/.env | cut -d= -f1"
+```
 
 ## Откат
 
