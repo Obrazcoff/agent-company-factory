@@ -1,5 +1,7 @@
 # Agent Company Factory — MVP
 
+**Repository:** [github.com/Obrazcoff/agent-company-factory](https://github.com/Obrazcoff/agent-company-factory)
+
 Architectural MVP that turns one goal prompt into a Company Blueprint, hires a team of role-based agents, runs them through an orchestrator with budget caps and human approvals, and exposes a transparent control plane.
 
 > Built on Next.js 15 + TypeScript + Tailwind v4. In-memory infra, mock LLM, mock connectors. Designed for a clean V1 swap to Postgres + Temporal + real connectors.

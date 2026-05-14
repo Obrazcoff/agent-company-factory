@@ -10,6 +10,10 @@ VPS: **nova-02** (`95.215.206.161`), приложение в **`/opt/c-fab-app`*
   `/root/.nvm/versions/node/v20.19.5/bin/npx` — на остальные unit’ы и **PM2** (например `n8n`) это не влияет, пока у них свой `ExecStart` / интерпретатор в ecosystem.
 - Сборка на сервере делается только в интерактивных/скриптовых сессиях с `nvm use 20` (как в `scripts/deploy-nova02.sh`).
 
+## Исходники
+
+Публичный репозиторий: **[github.com/Obrazcoff/agent-company-factory](https://github.com/Obrazcoff/agent-company-factory)**. На новом сервере можно один раз `git clone` в `/opt/c-fab-app`, дальше деплой — `git pull` + те же шаги сборки и `systemctl restart c-fab-app` (`.env` по-прежнему не в git).
+
 ## Порядок деплоя (рекомендуемый)
 
 1. **Локально** — коммит, `npm run verify` (по желанию).

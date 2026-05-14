@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Деплой на nova-02 → https://c-fab.nova01.click
+# Репозиторий: https://github.com/Obrazcoff/agent-company-factory
 # Требуется: SSH Host `nova-02` в ~/.ssh/config, каталог на сервере /opt/c-fab-app.
 #
 # Порядок (см. deploy/nova02.md):
