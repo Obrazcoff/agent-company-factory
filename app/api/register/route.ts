@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { getPrisma } from '@/lib/prisma';
+import { createUserWithDefaults } from '@/lib/provision-user';
 import { internal } from '@/factory/api/errors';
 
 const RegisterSchema = z.object({
@@ -25,34 +26,10 @@ export async function POST(request: NextRequest) {
     }
     const passwordHash = await bcrypt.hash(parsed.password, 10);
 
-    const result = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
-        data: {
-          email,
-          passwordHash,
-          name: parsed.name ?? null,
-        },
-      });
-      const workspace = await tx.workspace.create({
-        data: { name: 'Personal', ownerId: user.id },
-      });
-      const project = await tx.project.create({
-        data: {
-          workspaceId: workspace.id,
-          name: 'Default',
-          slug: 'default',
-        },
-      });
-      await tx.llmProfile.create({
-        data: {
-          projectId: project.id,
-          provider: 'mock',
-          baseUrl: null,
-          apiKey: null,
-          model: null,
-        },
-      });
-      return { userId: user.id, projectId: project.id, email: user.email };
+    const result = await createUserWithDefaults(prisma, {
+      email,
+      passwordHash,
+      name: parsed.name ?? null,
     });
 
     return NextResponse.json(result, { status: 201 });
