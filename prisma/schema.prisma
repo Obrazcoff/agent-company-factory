@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  passwordHash String
+  name         String?
+  workspaces   Workspace[]
+  createdAt    DateTime    @default(now())
+}
+
+model Workspace {
+  id        String    @id @default(cuid())
+  name      String
+  ownerId   String
+  owner     User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  projects  Project[]
+  createdAt DateTime  @default(now())
+}
+
+model Project {
+  id          String                  @id @default(cuid())
+  workspaceId String
+  workspace   Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  slug        String
+  bindings    ProjectCompanyBinding[]
+  llmProfile  LlmProfile?
+  createdAt   DateTime                @default(now())
+
+  @@unique([workspaceId, slug])
+}
+
+model ProjectCompanyBinding {
+  id           String   @id @default(cuid())
+  projectId    String
+  companyId    String
+  storageEpoch String
+  createdAt    DateTime @default(now())
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, companyId])
+}
+
+model LlmProfile {
+  id        String  @id @default(cuid())
+  projectId String  @unique
+  provider  String
+  baseUrl   String?
+  apiKey    String?
+  model     String?
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
