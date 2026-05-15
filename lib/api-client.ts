@@ -19,7 +19,11 @@ function formatApiFailure(status: number, body: string): string {
   const t = body.trim();
   try {
     const j = JSON.parse(t) as { error?: string; message?: string };
-    if (typeof j.error === 'string') return `${status}: ${j.error}`;
+    if (typeof j.error === 'string') {
+      const detail =
+        typeof j.message === 'string' && j.message.trim() ? ` — ${j.message.trim()}` : '';
+      return `${status}: ${j.error}${detail}`;
+    }
     if (typeof j.message === 'string') return `${status}: ${j.message}`;
   } catch {
     /* not JSON */

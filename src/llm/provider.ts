@@ -3,6 +3,7 @@ import { BlueprintSchema } from '@/factory/domain/schemas';
 import type { Locale } from '@/i18n/constants';
 import { DEFAULT_LOCALE } from '@/i18n/constants';
 import { blueprintSystemPrompt, mockDeterministicBlueprint } from '@/llm/locale-prompts';
+import { extractJsonStringFromLlmOutput } from '@/llm/extract-json-from-llm';
 
 export type LlmMessage = {
   role: 'system' | 'user' | 'assistant';
@@ -149,11 +150,12 @@ class OpenAiCompatibleClient implements LlmClient {
       choices?: Array<{ message?: { content?: string } }>;
     };
     const raw = json.choices?.[0]?.message?.content ?? '{}';
+    const jsonSlice = extractJsonStringFromLlmOutput(raw);
     let parsed: unknown;
     try {
-      parsed = JSON.parse(raw);
+      parsed = JSON.parse(jsonSlice);
     } catch {
-      throw new Error(`LLM returned invalid JSON: ${raw.slice(0, 200)}`);
+      throw new Error(`LLM returned invalid JSON: ${raw.slice(0, 400)}`);
     }
     const validated = BlueprintSchema.parse(parsed);
     return { data: validated, raw, costUsd: LLM_TEXT_COST_USD * 5 };
