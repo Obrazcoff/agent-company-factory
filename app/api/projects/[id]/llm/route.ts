@@ -31,6 +31,28 @@ function publicLlmProfile(p: {
   };
 }
 
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const prisma = getPrisma();
+    if (!prisma) {
+      return NextResponse.json({ error: 'DATABASE_URL is not configured' }, { status: 503 });
+    }
+    const session = await auth();
+    const userId = session?.user?.id;
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const { id: projectId } = await params;
+    const ok = await userOwnsProject(userId, projectId);
+    if (!ok) return notFound('project_not_found');
+
+    const profile = await prisma.llmProfile.findUnique({ where: { projectId } });
+    if (!profile) return NextResponse.json({ profile: null });
+    return NextResponse.json({ profile: publicLlmProfile(profile) });
+  } catch (error) {
+    return internal(error);
+  }
+}
+
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const prisma = getPrisma();
@@ -62,6 +84,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         ...(parsed.baseUrl !== undefined ? { baseUrl: parsed.baseUrl } : {}),
         ...(parsed.apiKey !== undefined ? { apiKey: parsed.apiKey } : {}),
         ...(parsed.model !== undefined ? { model: parsed.model } : {}),
+        ...(parsed.provider === 'mock' ? { baseUrl: null, apiKey: null, model: null } : {}),
       },
     });
 

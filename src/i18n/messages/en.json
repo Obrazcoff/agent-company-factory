@@ -82,7 +82,11 @@
     "msgSaved": "Saved. New LLM calls use this profile (running tasks keep the old model until done).",
     "provMock": "Mock (deterministic, no API cost)",
     "provOpenai": "OpenAI-compatible (URL + key + model)",
-    "provNeurohub": "Neurohub / Qwen (OpenAI-compatible endpoint)"
+    "provNeurohub": "Neurohub / Qwen (OpenAI-compatible endpoint)",
+    "mockHint": "No network calls — blueprints use the built-in deterministic generator. Best for demos and tests.",
+    "remoteFieldsTitle": "Endpoint & credentials",
+    "hasKeyHint": "A key is already stored on the server. Leave the field empty to keep it; enter a new value to replace.",
+    "loadingProfile": "Loading profile…"
   },
   "factory": {
     "title": "Agent Company Factory",

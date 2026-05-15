@@ -82,7 +82,11 @@
     "msgSaved": "Сохранено. Новые вызовы LLM идут с этим профилем (текущие задачи до конца на старой модели).",
     "provMock": "Mock (детерминированно, без API)",
     "provOpenai": "OpenAI-compatible (URL + ключ + модель)",
-    "provNeurohub": "Neurohub / Qwen (OpenAI-compatible endpoint)"
+    "provNeurohub": "Neurohub / Qwen (OpenAI-compatible endpoint)",
+    "mockHint": "Без сетевых вызовов — чертёж из встроенного детерминированного генератора. Удобно для демо и тестов.",
+    "remoteFieldsTitle": "Эндпоинт и доступ",
+    "hasKeyHint": "Ключ уже сохранён на сервере. Оставь поле пустым, чтобы не менять; введи новый — чтобы заменить.",
+    "loadingProfile": "Загрузка профиля…"
   },
   "factory": {
     "title": "Agent Company Factory",
