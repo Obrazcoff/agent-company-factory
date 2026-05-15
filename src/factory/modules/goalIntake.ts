@@ -6,8 +6,8 @@ import type { Locale } from '@/i18n/constants';
 import { DEFAULT_LOCALE } from '@/i18n/constants';
 import { BlueprintSchema } from '../domain/schemas';
 import { FACTORY_DEFAULTS } from '../config';
-import type { Agent, AgentRole, Blueprint, Company, Task } from '../domain/types';
-import { designTeam } from './teamDesigner';
+import type { Agent, AgentRole, Blueprint, Company, ProposedAgent, Task } from '../domain/types';
+import { designTeam, materializeAgentsFromProposed } from './teamDesigner';
 import { planSkills } from './skillsPlanner';
 import { enqueueTask } from './enqueue';
 
@@ -39,12 +39,13 @@ export type IntakeResult = {
  * @param req - intake request
  * @param prebuiltBlueprint - skip LLM call, use this blueprint (used when accepting a proposal)
  * @param existingCompanyId - reuse an existing company entity (used when accepting a proposal)
+ * @param deps.proposedAgents - when accepting a proposal: same order as blueprint.agents, reuses review UI names
  */
 export async function intakeAndCreateCompany(
   req: IntakeRequest,
   prebuiltBlueprint?: Blueprint,
   existingCompanyId?: string,
-  deps?: { llm?: LlmClient; locale?: Locale },
+  deps?: { llm?: LlmClient; locale?: Locale; proposedAgents?: ProposedAgent[] },
 ): Promise<IntakeResult> {
   const dailyBudget = req.dailyBudgetUsd ?? FACTORY_DEFAULTS.dailyBudgetUsd;
   let blueprint: Blueprint;
@@ -95,7 +96,26 @@ export async function intakeAndCreateCompany(
     },
   });
 
-  const agents = designTeam(company, blueprint);
+  const proposed = deps?.proposedAgents;
+  if (prebuiltBlueprint && proposed !== undefined && proposed.length !== blueprint.agents.length) {
+    throw new Error(
+      `proposedAgents length (${proposed.length}) does not match blueprint.agents (${blueprint.agents.length})`,
+    );
+  }
+  const useProposed =
+    Boolean(prebuiltBlueprint) && proposed !== undefined && proposed.length === blueprint.agents.length;
+  if (useProposed) {
+    for (let i = 0; i < proposed!.length; i += 1) {
+      if (proposed![i]!.role !== blueprint.agents[i]!.role) {
+        throw new Error(
+          `proposedAgents[${i}].role (${proposed![i]!.role}) !== blueprint.agents[${i}].role (${blueprint.agents[i]!.role})`,
+        );
+      }
+    }
+  }
+  const agents = useProposed
+    ? materializeAgentsFromProposed(company, proposed!)
+    : designTeam(company, blueprint);
   const planned = planSkills(agents, blueprint);
 
   const agentByRole = new Map<AgentRole, Agent>();

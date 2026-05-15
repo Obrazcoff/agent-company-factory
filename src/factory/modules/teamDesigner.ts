@@ -1,8 +1,8 @@
 import { db } from '../store/db';
 import { newId } from '../domain/ids';
 import { appendAudit } from '../audit/audit';
-import type { Agent, Blueprint, Company, EscalationRule } from '../domain/types';
-import { assignAvatarSlugsUnique, buildAgentDisplayName } from './agentCodename';
+import type { Agent, Blueprint, Company, EscalationRule, ProposedAgent } from '../domain/types';
+import { assignAvatarSlugsUnique, buildAgentDisplayName, normalizeAvatarSlug } from './agentCodename';
 
 const DEFAULT_ESCALATION: EscalationRule[] = [
   { trigger: 'budget_exceeded', action: 'pause_agent' },
@@ -38,5 +38,39 @@ export function designTeam(company: Company, blueprint: Blueprint): Agent[] {
     });
     return agent;
   });
+  return agents;
+}
+
+/**
+ * Persist agents from proposal review (same display names / avatars the user saw).
+ * `orderedProposed` must align 1:1 with `blueprint.agents` (same order and roles).
+ */
+export function materializeAgentsFromProposed(company: Company, orderedProposed: ProposedAgent[]): Agent[] {
+  const agents: Agent[] = [];
+  for (let i = 0; i < orderedProposed.length; i += 1) {
+    const pa = orderedProposed[i]!;
+    const id = newId('agt');
+    const agent: Agent = {
+      id,
+      companyId: company.id,
+      role: pa.role,
+      name: pa.name,
+      displayName: pa.displayName,
+      avatarSlug: normalizeAvatarSlug(pa.avatarSlug),
+      systemPrompt: pa.systemPrompt,
+      permissions: pa.permissions,
+      escalationRules: DEFAULT_ESCALATION,
+      status: 'idle',
+      costToDateUsd: 0,
+    };
+    db().agents.create(agent);
+    appendAudit({
+      companyId: company.id,
+      kind: 'agent.hired',
+      actor: 'system',
+      payload: { agentId: agent.id, role: agent.role, name: agent.name, permissions: agent.permissions },
+    });
+    agents.push(agent);
+  }
   return agents;
 }

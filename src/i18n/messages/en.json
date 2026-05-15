@@ -16,6 +16,8 @@
     "login": "Login",
     "register": "Register",
     "newCompany": "New company…",
+    "newCompanyDialogTitle": "Return to goal screen?",
+    "newCompanyDialogConfirm": "Continue",
     "newCompanyConfirm": "Clear the selected company in this browser and return to the goal screen? Server RAM state is not deleted — this only changes the current company in the UI."
   },
   "landing": {

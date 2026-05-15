@@ -40,11 +40,17 @@ describe('proposalReview', () => {
   it('acceptProposal materializes agents and tasks, sets company active', async () => {
     const { proposal } = await draftProposal({ missionPrompt: DEMO_PROMPT });
 
+    const previewByRole = Object.fromEntries(proposal.proposedAgents.map((a) => [a.role, a.displayName]));
+
     const result = await acceptProposal(proposal.id);
 
     expect(result.company.status).toBe('active');
     expect(result.agents.length).toBeGreaterThanOrEqual(1);
     expect(result.initialTasks.length).toBeGreaterThanOrEqual(1);
+
+    for (const a of result.agents) {
+      expect(a.displayName).toBe(previewByRole[a.role]);
+    }
 
     // Proposal marked accepted
     const saved = getProposal(proposal.id);

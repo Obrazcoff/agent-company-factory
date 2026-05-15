@@ -168,7 +168,13 @@ export async function acceptProposal(proposalId: string): Promise<IntakeResult> 
   // Mark proposal accepted
   db().proposals.update(proposalId, (cur) => ({ ...cur, status: 'accepted', updatedAt: nowIso() }));
 
-  // Re-run intake but skip the LLM call — pass the filtered blueprint directly
+  const orderedProposed: ProposedAgent[] = filteredBlueprint.agents.map((spec) => {
+    const pa = proposal.proposedAgents.find((p) => p.included && p.role === spec.role);
+    if (!pa) throw new Error(`Missing included proposed agent for role ${spec.role}`);
+    return pa;
+  });
+
+  // Re-run intake but skip the LLM call — pass filtered blueprint + proposed roster (no second codename pass)
   const result = await intakeAndCreateCompany(
     {
       missionPrompt: proposal.missionPrompt,
@@ -177,7 +183,7 @@ export async function acceptProposal(proposalId: string): Promise<IntakeResult> 
     },
     filteredBlueprint,
     company.id,
-    {},
+    { proposedAgents: orderedProposed },
   );
 
   appendAudit({

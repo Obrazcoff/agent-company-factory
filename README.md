@@ -4,7 +4,7 @@
 
 Architectural MVP that turns one goal prompt into a Company Blueprint, hires a team of role-based agents, runs them through an orchestrator with budget caps and human approvals, and exposes a transparent control plane.
 
-> Built on Next.js 15 + TypeScript + Tailwind v4. In-memory infra, mock LLM, mock connectors. Designed for a clean V1 swap to Postgres + Temporal + real connectors.
+> Built on Next.js 15 + TypeScript + Tailwind v4. In-memory infra; **blueprint** can use a **real OpenAI-compatible LLM** (OpenAI / Neurohub via env); **task runtime** still uses **mock connectors** (no real Gmail/CRM). See [`docs/CURRENT-BEHAVIOR.md`](./docs/CURRENT-BEHAVIOR.md) (EN + RU). Designed for a clean V1 swap to Postgres + Temporal + real connectors.
 
 ## TL;DR
 
@@ -13,13 +13,13 @@ npm install
 npm run dev          # http://localhost:3000
 # or:
 npm run eval:agent   # CLI demo, 8/8 acceptance criteria PASS
-npm test             # 68 tests pass (unit + integration + e2e)
+npm test             # unit + integration + e2e (see CI)
 ```
 
 ## What it does
 
 1. You give it a goal: _"Launch a B2B lead-gen company. Daily $50. All outbound emails require approval."_
-2. Goal Intake (mock LLM) → **Blueprint**: mission, KPIs, budget, agents, initial tasks.
+2. Goal Intake → **Blueprint** (HTTP LLM when `LLM_PROVIDER` is `openai` / `neurohub`, else mock): mission, KPIs, budget, agents, initial tasks.
 3. Team Designer hires PM / Researcher / Outreach / Ops with the right connector permissions.
 4. Orchestrator ticks: picks ready tasks, dispatches to agent runtime, enforces budget + approvals.
 5. Control Plane UI shows the team, queue, approvals, audit timeline, and per-agent cost in real-time (2s SWR poll).
@@ -39,6 +39,7 @@ All 6 AC from the brief are tested and demoable. See [`docs/README.md`](./docs/R
 
 ## Docs
 
+- [`docs/CURRENT-BEHAVIOR.md`](./docs/CURRENT-BEHAVIOR.md) — **EN + RU**: real LLM for blueprint vs mock task connectors
 - [`docs/README.md`](./docs/README.md) — index
 - [`docs/architecture/`](./docs/architecture/) — diagrams, data model, API contracts, state machines
 - [`docs/decisions/`](./docs/decisions/) — ADR-001..005
@@ -56,7 +57,7 @@ flowchart LR
   API --> Designer[Team Designer]
   API --> Orch[Orchestrator]
   API --> Aggregator[Control Plane]
-  Intake --> LLM[(LLM mock or OpenAI)]
+  Intake --> LLM[(LLM: mock or HTTP Neurohub/OpenAI)]
   Orch --> Runtime[Agent Runtime]
   Runtime --> Connectors[(5 mock connectors)]
   Runtime --> Policy[Approvals + Budget]
@@ -73,7 +74,7 @@ flowchart LR
 | `npm run dev`                                 | Next.js dev server     |
 | `npm run build`                               | Production build       |
 | `npm run check`                               | `tsc --noEmit` strict  |
-| `npm test`                                    | All 68 tests           |
+| `npm test`                                    | All tests              |
 | `npm run test:unit` / `:integration` / `:e2e` | Subset                 |
 | `npm run verify`                              | check + test (CI gate) |
 | `npm run eval:agent`                          | CLI demo (8/8 AC)      |
@@ -81,14 +82,15 @@ flowchart LR
 ## Environment
 
 ```bash
-cp .env.example .env.local   # defaults work for mock LLM
+cp .env.example .env.local   # mock LLM by default; set neurohub/openai for real blueprint
 ```
 
-| Var                                     | Default | Note                   |
-| --------------------------------------- | ------- | ---------------------- |
-| `LLM_PROVIDER`                          | `mock`  | or `openai`            |
-| `OPENAI_API_KEY` (or `OPEN_AI_API_KEY`) | —       | only for `openai` mode |
-| `FACTORY_SEED`                          | `42`    | deterministic ids/mock |
+| Var                                     | Default | Note                                      |
+| --------------------------------------- | ------- | ----------------------------------------- |
+| `LLM_PROVIDER`                          | `mock`  | `openai` or `neurohub` for real blueprint |
+| `OPENAI_API_KEY` / base URL             | —       | for `openai`                              |
+| `NEUROHUB_API_KEY` / `NEUROHUB_BASE_URL`| —       | for `neurohub` (OpenAI-compatible)        |
+| `FACTORY_SEED`                          | `42`    | deterministic ids/mock                  |
 
 ## V1 swap (not in MVP)
 
@@ -99,6 +101,6 @@ cp .env.example .env.local   # defaults work for mock LLM
 | `EventBus`      | in-memory             | Redis pub/sub or NATS                    |
 | `tick()`        | manual button + tests | Temporal worker + cron sweepers          |
 | Mock connectors | synthetic data        | OAuth-backed adapters                    |
-| Mock LLM        | seeded fixture        | OpenAI/Anthropic with structured outputs |
+| Blueprint LLM   | mock or HTTP OpenAI-compatible | Same + hosted gateways (Neurohub, etc.) |
 
 See [`docs/decisions/ADR-001-tech-stack.md`](./docs/decisions/ADR-001-tech-stack.md) for rationale.

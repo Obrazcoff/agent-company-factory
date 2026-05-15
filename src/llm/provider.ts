@@ -63,8 +63,15 @@ function lastUserContent(messages: LlmMessage[]): string {
 }
 
 function tryStreamingBlueprint(): boolean {
-  const v = (process.env.LLM_TRY_STREAMING_BLUEPRINT ?? '1').toLowerCase();
-  return v !== '0' && v !== 'false' && v !== 'off';
+  /** Default off: same host as JSON call — avoids an extra full connect wait when the gateway is down or ignores stream. */
+  const v = (process.env.LLM_TRY_STREAMING_BLUEPRINT ?? '0').toLowerCase();
+  return v === '1' || v === 'true' || v === 'on';
+}
+
+/** Same host: a failed TCP connect on stream POST will repeat on JSON POST — do not wait twice. */
+function isLlmConnectTimeoutError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /ConnectTimeout|connect timeout/i.test(msg);
 }
 
 class MockLlmClient implements LlmClient {
@@ -232,7 +239,8 @@ class OpenAiCompatibleClient implements LlmClient {
         } else {
           await streamRes.text().catch(() => {});
         }
-      } catch {
+      } catch (e) {
+        if (isLlmConnectTimeoutError(e)) throw e;
         /* fall through to JSON completion */
       }
     }

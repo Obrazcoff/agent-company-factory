@@ -23,6 +23,7 @@ import {
 } from '@/../components/control-plane/OrchestratorActivity';
 import { ProposalReview } from '@/../components/ProposalReview';
 import { BlueprintLoadingOverlay } from '@/../components/BlueprintLoadingOverlay';
+import { ConfirmModal } from '@/../components/ui/ConfirmModal';
 import { llmBlueprintProgressLine } from '@/../components/llmBlueprintProgressLabel';
 import { useI18n } from '@/../components/i18n/LocaleProvider';
 import { LanguageSwitcher } from '@/../components/i18n/LanguageSwitcher';
@@ -53,6 +54,7 @@ export function FactoryHome() {
   const { status: authStatus } = useSession();
   const [budget, setBudget] = useState(50);
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [newCompanyDialogOpen, setNewCompanyDialogOpen] = useState(false);
   const [proposal, setProposal] = useState<CompanyProposal | null>(null);
   const [drafting, setDrafting] = useState(false);
   const [llmProgressLine, setLlmProgressLine] = useState<string | null>(null);
@@ -315,19 +317,7 @@ export function FactoryHome() {
                       type="button"
                       className="underline hover:text-[var(--color-fg)]"
                       disabled={ticking}
-                      onClick={() => {
-                        if (!window.confirm(t('nav.newCompanyConfirm'))) return;
-                        setCompanyId(null);
-                        setLastRunEntry(null);
-                        setActiveTab('overview');
-                        setPollPaused(false);
-                        try {
-                          sessionStorage.removeItem(SESSION_COMPANY_ID);
-                          sessionStorage.removeItem(SESSION_SERVER_BOOT_ID);
-                        } catch {
-                          /* ignore */
-                        }
-                      }}
+                      onClick={() => setNewCompanyDialogOpen(true)}
                     >
                       {t('nav.newCompany')}
                     </button>
@@ -607,6 +597,28 @@ export function FactoryHome() {
           </TabPanel>
         </>
       )}
+
+      <ConfirmModal
+        open={newCompanyDialogOpen}
+        title={t('nav.newCompanyDialogTitle')}
+        description={t('nav.newCompanyConfirm')}
+        cancelLabel={t('common.cancel')}
+        confirmLabel={t('nav.newCompanyDialogConfirm')}
+        onCancel={() => setNewCompanyDialogOpen(false)}
+        onConfirm={() => {
+          setNewCompanyDialogOpen(false);
+          setCompanyId(null);
+          setLastRunEntry(null);
+          setActiveTab('overview');
+          setPollPaused(false);
+          try {
+            sessionStorage.removeItem(SESSION_COMPANY_ID);
+            sessionStorage.removeItem(SESSION_SERVER_BOOT_ID);
+          } catch {
+            /* ignore */
+          }
+        }}
+      />
 
       <BlueprintLoadingOverlay
         key={drafting ? `draft-${locale}` : 'idle'}
