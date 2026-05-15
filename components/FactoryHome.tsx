@@ -23,6 +23,7 @@ import {
 } from '@/../components/control-plane/OrchestratorActivity';
 import { ProposalReview } from '@/../components/ProposalReview';
 import { BlueprintLoadingOverlay } from '@/../components/BlueprintLoadingOverlay';
+import { llmBlueprintProgressLine } from '@/../components/llmBlueprintProgressLabel';
 import { useI18n } from '@/../components/i18n/LocaleProvider';
 import { LanguageSwitcher } from '@/../components/i18n/LanguageSwitcher';
 import type { CompanyState } from '@/factory/modules/controlPlane';
@@ -54,6 +55,7 @@ export function FactoryHome() {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [proposal, setProposal] = useState<CompanyProposal | null>(null);
   const [drafting, setDrafting] = useState(false);
+  const [llmProgressLine, setLlmProgressLine] = useState<string | null>(null);
 
   useEffect(() => {
     if (authStatus !== 'authenticated') return;
@@ -167,14 +169,18 @@ export function FactoryHome() {
 
   async function handleDraftProposal() {
     setDrafting(true);
+    setLlmProgressLine(null);
     setError(null);
     try {
-      const result = await apiClient.draftProposal({ missionPrompt: prompt, dailyBudgetUsd: budget });
+      const result = await apiClient.draftProposal({ missionPrompt: prompt, dailyBudgetUsd: budget }, (e) => {
+        setLlmProgressLine(llmBlueprintProgressLine(e, t));
+      });
       setProposal(result.proposal);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setDrafting(false);
+      setLlmProgressLine(null);
     }
   }
 
@@ -608,6 +614,7 @@ export function FactoryHome() {
         locale={locale}
         title={t('factory.blueprintOverlayTitle')}
         subtitle={t('factory.blueprintOverlaySub')}
+        progressDetail={llmProgressLine}
       />
     </main>
   );

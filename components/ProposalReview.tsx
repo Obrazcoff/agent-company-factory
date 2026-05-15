@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { BlueprintLoadingOverlay } from '@/../components/BlueprintLoadingOverlay';
+import { llmBlueprintProgressLine } from '@/../components/llmBlueprintProgressLabel';
 import type { CompanyProposal, ProposedAgent } from '@/factory/domain/types';
 import { apiClient } from '@/../lib/api-client';
 import { AgentAvatar } from '@/../components/AgentAvatar';
@@ -30,6 +31,7 @@ export function ProposalReview({ proposal, onAccepted, onRebuilt, onError }: Pro
   const [feedback, setFeedback] = useState('');
   const [accepting, setAccepting] = useState(false);
   const [rebuilding, setRebuilding] = useState(false);
+  const [rebuildProgressLine, setRebuildProgressLine] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const includedCount = agents.filter((a) => a.included).length;
@@ -66,8 +68,11 @@ export function ProposalReview({ proposal, onAccepted, onRebuilt, onError }: Pro
 
   async function handleRebuild() {
     setRebuilding(true);
+    setRebuildProgressLine(null);
     try {
-      const result = await apiClient.rebuildProposal(proposal.id, feedback || undefined);
+      const result = await apiClient.rebuildProposal(proposal.id, feedback || undefined, (e) => {
+        setRebuildProgressLine(llmBlueprintProgressLine(e, t));
+      });
       setAgents(result.proposal.proposedAgents);
       setFeedback('');
       onRebuilt(result.proposal);
@@ -75,6 +80,7 @@ export function ProposalReview({ proposal, onAccepted, onRebuilt, onError }: Pro
       onError(e instanceof Error ? e.message : String(e));
     } finally {
       setRebuilding(false);
+      setRebuildProgressLine(null);
     }
   }
 
@@ -86,6 +92,7 @@ export function ProposalReview({ proposal, onAccepted, onRebuilt, onError }: Pro
         locale={locale}
         title={t('proposal.rebuildOverlayTitle')}
         subtitle={t('proposal.rebuildOverlaySub')}
+        progressDetail={rebuildProgressLine}
       />
       <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/85 p-5 shadow-[0_20px_60px_oklch(0.05_0.02_260/0.45)] backdrop-blur-md">
         <div className="flex items-start justify-between gap-4">

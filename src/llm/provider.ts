@@ -6,7 +6,16 @@ import { blueprintSystemPrompt, mockDeterministicBlueprint } from '@/llm/locale-
 import { extractJsonStringFromLlmOutput } from '@/llm/extract-json-from-llm';
 import { normalizeBlueprintPayload } from '@/llm/normalize-blueprint-payload';
 import { preferIpv4DnsOnce } from '@/lib/prefer-ipv4-dns';
+import { preflightLlmOriginReachable } from '@/llm/llm-host-preflight';
+import {
+  aggregateOpenAiSseChatContent,
+  shouldTreatAsSseStream,
+  type SseReadableResponse,
+} from '@/llm/openai-chat-stream';
+import type { LlmBlueprintGenerateOptions } from '@/llm/llm-progress';
 import { Agent, fetch as undiciFetch } from 'undici';
+
+export type { LlmBlueprintGenerateOptions, LlmBlueprintProgressEvent } from '@/llm/llm-progress';
 
 export type LlmMessage = {
   role: 'system' | 'user' | 'assistant';
@@ -25,6 +34,7 @@ export type LlmClient = {
     missionPrompt: string,
     dailyBudgetUsd: number,
     locale?: Locale,
+    options?: LlmBlueprintGenerateOptions,
   ): Promise<LlmCallResult<Blueprint>>;
 };
 
@@ -52,6 +62,11 @@ function lastUserContent(messages: LlmMessage[]): string {
   return '';
 }
 
+function tryStreamingBlueprint(): boolean {
+  const v = (process.env.LLM_TRY_STREAMING_BLUEPRINT ?? '1').toLowerCase();
+  return v !== '0' && v !== 'false' && v !== 'off';
+}
+
 class MockLlmClient implements LlmClient {
   async generate(messages: LlmMessage[]): Promise<string> {
     const userMessage = lastUserContent(messages);
@@ -71,6 +86,7 @@ class MockLlmClient implements LlmClient {
     missionPrompt: string,
     dailyBudgetUsd: number,
     locale: Locale = DEFAULT_LOCALE,
+    _options?: LlmBlueprintGenerateOptions,
   ): Promise<LlmCallResult<Blueprint>> {
     const data = mockDeterministicBlueprint(missionPrompt, dailyBudgetUsd, locale);
     return {
@@ -112,6 +128,19 @@ class OpenAiCompatibleClient implements LlmClient {
     private readonly blueprintJsonMode: boolean,
   ) {}
 
+  private finishBlueprintFromAssistantRaw(raw: string): LlmCallResult<Blueprint> {
+    const jsonSlice = extractJsonStringFromLlmOutput(raw);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(jsonSlice);
+    } catch {
+      throw new Error(`LLM returned invalid JSON: ${raw.slice(0, 400)}`);
+    }
+    const normalized = normalizeBlueprintPayload(parsed);
+    const validated = BlueprintSchema.parse(normalized);
+    return { data: validated, raw, costUsd: LLM_TEXT_COST_USD * 5 };
+  }
+
   private async postCompletions(body: Record<string, unknown>) {
     try {
       return await undiciFetch(this.completionsUrl, {
@@ -128,7 +157,7 @@ class OpenAiCompatibleClient implements LlmClient {
       const cause =
         err instanceof Error && err.cause !== undefined ? ` cause=${String(err.cause)}` : '';
       throw new Error(
-        `LLM fetch failed for ${this.completionsUrl}: ${msg}${cause}. From this server, the URL must be reachable (DNS, TLS, firewall, IPv6/IPv4).`,
+        `LLM fetch failed for ${this.completionsUrl}: ${msg}${cause}. If this mentions ConnectTimeout, the server never completed TCP/TLS to the LLM host (not “slow generation”). Check DNS, firewall, IPv4/IPv6, and routing from this machine.`,
       );
     }
   }
@@ -151,6 +180,7 @@ class OpenAiCompatibleClient implements LlmClient {
     missionPrompt: string,
     dailyBudgetUsd: number,
     locale: Locale = DEFAULT_LOCALE,
+    options?: LlmBlueprintGenerateOptions,
   ): Promise<LlmCallResult<Blueprint>> {
     const systemPrompt = blueprintSystemPrompt(dailyBudgetUsd, locale);
 
@@ -166,6 +196,48 @@ class OpenAiCompatibleClient implements LlmClient {
       payload.response_format = { type: 'json_object' };
     }
 
+    options?.onProgress?.({ stage: 'preflight_start' });
+    const pf = await preflightLlmOriginReachable(this.completionsUrl, this.apiKey);
+    options?.onProgress?.({ stage: 'preflight_ok', ms: pf.ms });
+
+    if (tryStreamingBlueprint()) {
+      try {
+        options?.onProgress?.({ stage: 'llm_stream_attempt' });
+        const streamRes = await this.postCompletions({ ...payload, stream: true });
+        const sseRes = streamRes as unknown as SseReadableResponse;
+        if (streamRes.ok && shouldTreatAsSseStream(sseRes)) {
+          const raw = await aggregateOpenAiSseChatContent(sseRes, (total) => {
+            options?.onProgress?.({ stage: 'llm_stream_chars', total });
+          });
+          if (raw.trim().length > 0) {
+            return this.finishBlueprintFromAssistantRaw(raw);
+          }
+        } else if (streamRes.ok) {
+          const ct = (streamRes.headers.get('content-type') ?? '').toLowerCase();
+          if (ct.includes('application/json')) {
+            const json = (await streamRes.json()) as {
+              choices?: Array<{ message?: { content?: string } }>;
+            };
+            const raw = json.choices?.[0]?.message?.content ?? '';
+            if (raw.trim().length > 0) {
+              return this.finishBlueprintFromAssistantRaw(raw);
+            }
+          } else {
+            try {
+              await streamRes.body?.cancel();
+            } catch {
+              /* ignore */
+            }
+          }
+        } else {
+          await streamRes.text().catch(() => {});
+        }
+      } catch {
+        /* fall through to JSON completion */
+      }
+    }
+
+    options?.onProgress?.({ stage: 'llm_json_attempt' });
     const response = await this.postCompletions(payload);
 
     if (!response.ok) {
@@ -177,16 +249,7 @@ class OpenAiCompatibleClient implements LlmClient {
       choices?: Array<{ message?: { content?: string } }>;
     };
     const raw = json.choices?.[0]?.message?.content ?? '{}';
-    const jsonSlice = extractJsonStringFromLlmOutput(raw);
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(jsonSlice);
-    } catch {
-      throw new Error(`LLM returned invalid JSON: ${raw.slice(0, 400)}`);
-    }
-    const normalized = normalizeBlueprintPayload(parsed);
-    const validated = BlueprintSchema.parse(normalized);
-    return { data: validated, raw, costUsd: LLM_TEXT_COST_USD * 5 };
+    return this.finishBlueprintFromAssistantRaw(raw);
   }
 }
 

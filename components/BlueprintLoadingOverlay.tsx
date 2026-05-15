@@ -9,12 +9,14 @@ type Props = {
   locale: Locale;
   title: string;
   subtitle?: string;
+  /** Server-reported stage (preflight / streaming / JSON wait). */
+  progressDetail?: string | null;
 };
 
 const MIN_MS = 2200;
 const MAX_MS = 3800;
 
-export function BlueprintLoadingOverlay({ open, locale, title, subtitle }: Props) {
+export function BlueprintLoadingOverlay({ open, locale, title, subtitle, progressDetail }: Props) {
   const [phrase, setPhrase] = useState('');
 
   useEffect(() => {
@@ -59,6 +61,11 @@ export function BlueprintLoadingOverlay({ open, locale, title, subtitle }: Props
         </h2>
         {subtitle ? (
           <p className="mt-2 text-center text-sm text-[var(--color-muted)] md:text-base">{subtitle}</p>
+        ) : null}
+        {progressDetail ? (
+          <p className="mt-3 rounded-lg border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 px-3 py-2 text-center text-xs font-medium text-[var(--color-fg)] md:text-sm">
+            {progressDetail}
+          </p>
         ) : null}
         <p className="mt-6 min-h-[3.5rem] text-center text-base leading-relaxed text-[var(--color-fg)] md:min-h-[4rem] md:text-lg">
           {phrase}

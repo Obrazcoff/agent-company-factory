@@ -8,6 +8,7 @@ import { db } from '../store/db';
 import { newId, nowIso } from '../domain/ids';
 import { appendAudit } from '../audit/audit';
 import { createLlmClient, type LlmClient } from '@/llm/provider';
+import type { LlmBlueprintProgressEvent } from '@/llm/llm-progress';
 import { buildRebuildUserPromptParts } from '@/llm/locale-prompts';
 import type { Locale } from '@/i18n/constants';
 import { DEFAULT_LOCALE } from '@/i18n/constants';
@@ -54,12 +55,14 @@ export type RebuildRequest = {
 /** Create a blueprint + proposed agents WITHOUT persisting agents/tasks */
 export async function draftProposal(
   req: DraftProposalRequest,
-  deps?: { llm?: LlmClient; locale?: Locale },
+  deps?: { llm?: LlmClient; locale?: Locale; onBlueprintProgress?: (e: LlmBlueprintProgressEvent) => void },
 ): Promise<DraftProposalResult> {
   const dailyBudget = req.dailyBudgetUsd ?? FACTORY_DEFAULTS.dailyBudgetUsd;
   const llm = deps?.llm ?? createLlmClient();
   const locale = deps?.locale ?? DEFAULT_LOCALE;
-  const blueprintCall = await llm.generateBlueprint(req.missionPrompt, dailyBudget, locale);
+  const blueprintCall = await llm.generateBlueprint(req.missionPrompt, dailyBudget, locale, {
+    onProgress: deps?.onBlueprintProgress,
+  });
   const blueprint = BlueprintSchema.parse(blueprintCall.data);
 
   // Create company in proposal status (no agents or tasks created yet)
@@ -196,7 +199,7 @@ export async function acceptProposal(proposalId: string): Promise<IntakeResult> 
 export async function rebuildProposal(
   proposalId: string,
   req: RebuildRequest,
-  deps?: { llm?: LlmClient; locale?: Locale },
+  deps?: { llm?: LlmClient; locale?: Locale; onBlueprintProgress?: (e: LlmBlueprintProgressEvent) => void },
 ): Promise<DraftProposalResult> {
   const proposal = db().proposals.get(proposalId);
   if (!proposal) throw new Error(`Proposal ${proposalId} not found`);
@@ -239,11 +242,13 @@ async function draftProposalForCompany(
   company: Company,
   prompt: string,
   dailyBudget: number,
-  deps?: { llm?: LlmClient; locale?: Locale },
+  deps?: { llm?: LlmClient; locale?: Locale; onBlueprintProgress?: (e: LlmBlueprintProgressEvent) => void },
 ): Promise<DraftProposalResult> {
   const llm = deps?.llm ?? createLlmClient();
   const locale = deps?.locale ?? DEFAULT_LOCALE;
-  const blueprintCall = await llm.generateBlueprint(prompt, dailyBudget, locale);
+  const blueprintCall = await llm.generateBlueprint(prompt, dailyBudget, locale, {
+    onProgress: deps?.onBlueprintProgress,
+  });
   const blueprint = BlueprintSchema.parse(blueprintCall.data);
 
   const avatarSeed = `${nowIso()}\x1e${newId('av')}\x1e${company.id}\x1e${blueprint.agents.map((a) => `${a.role}:${a.name}`).join('|')}`;

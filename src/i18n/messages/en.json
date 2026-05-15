@@ -116,6 +116,13 @@
     "generatingBlueprint": "Generating blueprint…",
     "blueprintOverlayTitle": "Drafting your blueprint",
     "blueprintOverlaySub": "The LLM can take a little while — hang tight.",
+    "llmProgress": {
+      "preflightStart": "Checking reachability to the LLM host…",
+      "preflightOk": "Host responded (preflight {{ms}} ms) — starting model request…",
+      "streamAttempt": "Streaming response — you should see token counts if the gateway supports SSE.",
+      "streamChars": "Receiving model output… {{n}} characters so far",
+      "jsonAttempt": "Waiting for full JSON response (non-stream or fallback)…"
+    },
     "skipReview": "Skip review",
     "creating": "Creating…",
     "goalHint": "Review Blueprint — inspect and edit the proposal before creating the company. Skip review — create the company immediately.",

@@ -116,6 +116,13 @@
     "generatingBlueprint": "Генерация чертежа…",
     "blueprintOverlayTitle": "Чертим твою компанию",
     "blueprintOverlaySub": "LLM может думать дольше обычного — не закрывай вкладку.",
+    "llmProgress": {
+      "preflightStart": "Проверяем доступность хоста LLM…",
+      "preflightOk": "Хост ответил (preflight {{ms}} ms) — запускаем запрос к модели…",
+      "streamAttempt": "Стриминг ответа — если шлюз поддерживает SSE, пойдёт счётчик символов.",
+      "streamChars": "Получаем вывод модели… уже {{n}} символов",
+      "jsonAttempt": "Ждём полный JSON (без стрима или fallback)…"
+    },
     "skipReview": "Skip review",
     "creating": "Создание…",
     "goalHint": "Review Blueprint — посмотреть и отредактировать предложение перед созданием компании. Skip review — создать компанию сразу.",
