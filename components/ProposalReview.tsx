@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { BlueprintLoadingOverlay } from '@/../components/BlueprintLoadingOverlay';
 import type { CompanyProposal, ProposedAgent } from '@/factory/domain/types';
 import { apiClient } from '@/../lib/api-client';
 import { AgentAvatar } from '@/../components/AgentAvatar';
@@ -24,7 +25,7 @@ function slugFor(agent: ProposedAgent): string {
 }
 
 export function ProposalReview({ proposal, onAccepted, onRebuilt, onError }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [agents, setAgents] = useState<ProposedAgent[]>(proposal.proposedAgents);
   const [feedback, setFeedback] = useState('');
   const [accepting, setAccepting] = useState(false);
@@ -79,6 +80,13 @@ export function ProposalReview({ proposal, onAccepted, onRebuilt, onError }: Pro
 
   return (
     <div className="space-y-6">
+      <BlueprintLoadingOverlay
+        key={rebuilding ? `rebuild-${locale}` : 'idle'}
+        open={rebuilding}
+        locale={locale}
+        title={t('proposal.rebuildOverlayTitle')}
+        subtitle={t('proposal.rebuildOverlaySub')}
+      />
       <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/85 p-5 shadow-[0_20px_60px_oklch(0.05_0.02_260/0.45)] backdrop-blur-md">
         <div className="flex items-start justify-between gap-4">
           <div>

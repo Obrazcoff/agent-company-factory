@@ -22,6 +22,7 @@ import {
   type LastOrchestratorRun,
 } from '@/../components/control-plane/OrchestratorActivity';
 import { ProposalReview } from '@/../components/ProposalReview';
+import { BlueprintLoadingOverlay } from '@/../components/BlueprintLoadingOverlay';
 import { useI18n } from '@/../components/i18n/LocaleProvider';
 import { LanguageSwitcher } from '@/../components/i18n/LanguageSwitcher';
 import type { CompanyState } from '@/factory/modules/controlPlane';
@@ -600,6 +601,14 @@ export function FactoryHome() {
           </TabPanel>
         </>
       )}
+
+      <BlueprintLoadingOverlay
+        key={drafting ? `draft-${locale}` : 'idle'}
+        open={drafting}
+        locale={locale}
+        title={t('factory.blueprintOverlayTitle')}
+        subtitle={t('factory.blueprintOverlaySub')}
+      />
     </main>
   );
 }

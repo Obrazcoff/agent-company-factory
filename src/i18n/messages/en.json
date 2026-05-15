@@ -114,6 +114,8 @@
     "dailyBudget": "Daily budget (USD)",
     "reviewBlueprintBtn": "→ Review Blueprint",
     "generatingBlueprint": "Generating blueprint…",
+    "blueprintOverlayTitle": "Drafting your blueprint",
+    "blueprintOverlaySub": "The LLM can take a little while — hang tight.",
     "skipReview": "Skip review",
     "creating": "Creating…",
     "goalHint": "Review Blueprint — inspect and edit the proposal before creating the company. Skip review — create the company immediately.",
@@ -151,6 +153,8 @@
     "accepting": "Activating…",
     "rebuild": "Rebuild blueprint",
     "rebuilding": "Rebuilding…",
+    "rebuildOverlayTitle": "Rebuilding blueprint",
+    "rebuildOverlaySub": "Another LLM pass — same fun loading lines.",
     "rebuildTitle": "POST /api/proposals/:id/rebuild — new proposal; old one marked rebuilding"
   },
   "orchestrator": {

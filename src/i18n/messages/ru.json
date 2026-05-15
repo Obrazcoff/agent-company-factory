@@ -114,6 +114,8 @@
     "dailyBudget": "Дневной бюджет (USD)",
     "reviewBlueprintBtn": "→ Review Blueprint",
     "generatingBlueprint": "Генерация чертежа…",
+    "blueprintOverlayTitle": "Чертим твою компанию",
+    "blueprintOverlaySub": "LLM может думать дольше обычного — не закрывай вкладку.",
     "skipReview": "Skip review",
     "creating": "Создание…",
     "goalHint": "Review Blueprint — посмотреть и отредактировать предложение перед созданием компании. Skip review — создать компанию сразу.",
@@ -151,6 +153,8 @@
     "accepting": "Активация…",
     "rebuild": "Пересобрать чертёж",
     "rebuilding": "Пересборка…",
+    "rebuildOverlayTitle": "Пересобираем чертёж",
+    "rebuildOverlaySub": "Ещё один вызов LLM — те же шуточные статусы в ожидании.",
     "rebuildTitle": "POST /api/proposals/:id/rebuild — новый proposal; старый в статусе rebuilding"
   },
   "orchestrator": {

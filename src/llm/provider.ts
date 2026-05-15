@@ -4,6 +4,7 @@ import type { Locale } from '@/i18n/constants';
 import { DEFAULT_LOCALE } from '@/i18n/constants';
 import { blueprintSystemPrompt, mockDeterministicBlueprint } from '@/llm/locale-prompts';
 import { extractJsonStringFromLlmOutput } from '@/llm/extract-json-from-llm';
+import { normalizeBlueprintPayload } from '@/llm/normalize-blueprint-payload';
 import { preferIpv4DnsOnce } from '@/lib/prefer-ipv4-dns';
 import { Agent, fetch as undiciFetch } from 'undici';
 
@@ -183,7 +184,8 @@ class OpenAiCompatibleClient implements LlmClient {
     } catch {
       throw new Error(`LLM returned invalid JSON: ${raw.slice(0, 400)}`);
     }
-    const validated = BlueprintSchema.parse(parsed);
+    const normalized = normalizeBlueprintPayload(parsed);
+    const validated = BlueprintSchema.parse(normalized);
     return { data: validated, raw, costUsd: LLM_TEXT_COST_USD * 5 };
   }
 }

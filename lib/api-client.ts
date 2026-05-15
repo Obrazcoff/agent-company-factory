@@ -18,10 +18,20 @@ export class ApiHttpError extends Error {
 function formatApiFailure(status: number, body: string): string {
   const t = body.trim();
   try {
-    const j = JSON.parse(t) as { error?: string; message?: string };
+    const j = JSON.parse(t) as {
+      error?: string;
+      message?: string;
+      issues?: Array<{ path?: unknown; message?: string }>;
+    };
     if (typeof j.error === 'string') {
-      const detail =
+      let detail =
         typeof j.message === 'string' && j.message.trim() ? ` — ${j.message.trim()}` : '';
+      if (j.error === 'validation_failed' && Array.isArray(j.issues) && j.issues.length > 0) {
+        const bits = j.issues
+          .slice(0, 5)
+          .map((i) => `${JSON.stringify(i.path ?? [])}: ${i.message ?? 'invalid'}`);
+        detail = `${detail ? `${detail}; ` : ' — '}${bits.join('; ')}`;
+      }
       return `${status}: ${j.error}${detail}`;
     }
     if (typeof j.message === 'string') return `${status}: ${j.message}`;
