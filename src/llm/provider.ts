@@ -5,6 +5,7 @@ import { DEFAULT_LOCALE } from '@/i18n/constants';
 import { blueprintSystemPrompt, mockDeterministicBlueprint } from '@/llm/locale-prompts';
 import { extractJsonStringFromLlmOutput } from '@/llm/extract-json-from-llm';
 import { preferIpv4DnsOnce } from '@/lib/prefer-ipv4-dns';
+import { Agent, fetch as undiciFetch } from 'undici';
 
 export type LlmMessage = {
   role: 'system' | 'user' | 'assistant';
@@ -85,6 +86,23 @@ function chatCompletionsUrl(base: string): string {
   return `${b}/chat/completions`;
 }
 
+/** Longer than Node's default ~10s connect timeout — Neurohub/TLS can be slow from some VPS. */
+let llmUndiciAgent: Agent | undefined;
+
+function getLlmUndiciAgent(): Agent {
+  if (!llmUndiciAgent) {
+    const connect = Math.min(300_000, Math.max(5_000, Number(process.env.LLM_CONNECT_TIMEOUT_MS || 60_000)));
+    const headers = Math.min(600_000, Math.max(10_000, Number(process.env.LLM_HEADERS_TIMEOUT_MS || 180_000)));
+    const body = Math.min(600_000, Math.max(10_000, Number(process.env.LLM_BODY_TIMEOUT_MS || 180_000)));
+    llmUndiciAgent = new Agent({
+      connectTimeout: connect,
+      headersTimeout: headers,
+      bodyTimeout: body,
+    });
+  }
+  return llmUndiciAgent;
+}
+
 class OpenAiCompatibleClient implements LlmClient {
   constructor(
     private readonly apiKey: string,
@@ -93,9 +111,10 @@ class OpenAiCompatibleClient implements LlmClient {
     private readonly blueprintJsonMode: boolean,
   ) {}
 
-  private async postCompletions(body: Record<string, unknown>): Promise<Response> {
+  private async postCompletions(body: Record<string, unknown>) {
     try {
-      return await fetch(this.completionsUrl, {
+      return await undiciFetch(this.completionsUrl, {
+        dispatcher: getLlmUndiciAgent(),
         method: 'POST',
         headers: {
           Authorization: `Bearer ${this.apiKey}`,
