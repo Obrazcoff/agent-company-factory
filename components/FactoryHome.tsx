@@ -169,7 +169,7 @@ export function FactoryHome() {
 
   async function handleDraftProposal() {
     setDrafting(true);
-    setLlmProgressLine(null);
+    setLlmProgressLine(t('factory.llmProgress.clientSending'));
     setError(null);
     try {
       const result = await apiClient.draftProposal({ missionPrompt: prompt, dailyBudgetUsd: budget }, (e) => {

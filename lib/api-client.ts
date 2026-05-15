@@ -145,6 +145,7 @@ export const apiClient = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Accept: 'application/x-ndjson',
         ...projectHeaders(),
       },
       body: JSON.stringify(body),
@@ -164,6 +165,7 @@ export const apiClient = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Accept: 'application/x-ndjson',
         ...projectHeaders(),
       },
       body: JSON.stringify({ feedback }),

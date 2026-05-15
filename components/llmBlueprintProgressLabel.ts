@@ -3,6 +3,8 @@ import type { TranslateFn } from '@/i18n/dictionaries';
 
 export function llmBlueprintProgressLine(e: LlmBlueprintProgressEvent, t: TranslateFn): string {
   switch (e.stage) {
+    case 'http_stream_open':
+      return t('factory.llmProgress.httpStreamOpen');
     case 'preflight_start':
       return t('factory.llmProgress.preflightStart');
     case 'preflight_ok':

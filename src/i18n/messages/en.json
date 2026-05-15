@@ -117,6 +117,8 @@
     "blueprintOverlayTitle": "Drafting your blueprint",
     "blueprintOverlaySub": "The LLM can take a little while — hang tight.",
     "llmProgress": {
+      "clientSending": "Sending request to the server…",
+      "httpStreamOpen": "Server accepted the job — connecting to the LLM…",
       "preflightStart": "Checking reachability to the LLM host…",
       "preflightOk": "Host responded (preflight {{ms}} ms) — starting model request…",
       "streamAttempt": "Streaming response — you should see token counts if the gateway supports SSE.",

@@ -5,6 +5,8 @@ import { internal } from '@/factory/api/errors';
 import { resolveLlmClientFromRequest } from '@/lib/llm-from-request';
 import { getLocaleFromRequest } from '@/i18n/request-locale';
 import { encodeProposalNdjsonLine } from '@/lib/proposal-ndjson';
+import { logBlueprintProgress } from '@/llm/blueprint-progress-log';
+import type { LlmBlueprintProgressEvent } from '@/llm/llm-progress';
 
 const DraftProposalSchema = z.object({
   missionPrompt: z.string().min(10, 'Mission prompt must be at least 10 characters'),
@@ -34,11 +36,16 @@ export async function POST(request: NextRequest) {
       const send = (line: Parameters<typeof encodeProposalNdjsonLine>[0]) => {
         controller.enqueue(encodeProposalNdjsonLine(line));
       };
+      const emitProgress = (event: LlmBlueprintProgressEvent) => {
+        logBlueprintProgress(event, 'POST /api/proposals');
+        send({ type: 'progress', event });
+      };
       try {
+        emitProgress({ stage: 'http_stream_open' });
         const result = await draftProposal(parsed, {
           llm,
           locale,
-          onBlueprintProgress: (event) => send({ type: 'progress', event }),
+          onBlueprintProgress: emitProgress,
         });
         send({ type: 'done', proposal: result.proposal, llmCostUsd: result.llmCostUsd });
         controller.close();
@@ -62,6 +69,7 @@ export async function POST(request: NextRequest) {
     headers: {
       'Content-Type': 'application/x-ndjson; charset=utf-8',
       'Cache-Control': 'no-store',
+      'X-Accel-Buffering': 'no',
     },
   });
 }

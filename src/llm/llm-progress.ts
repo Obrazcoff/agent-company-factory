@@ -1,6 +1,7 @@
 /** Progress while generating a blueprint (preflight, streaming, JSON fallback). */
 
 export type LlmBlueprintProgressEvent =
+  | { stage: 'http_stream_open' }
   | { stage: 'preflight_start' }
   | { stage: 'preflight_ok'; ms: number }
   | { stage: 'llm_stream_attempt' }

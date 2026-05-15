@@ -68,7 +68,7 @@ export function ProposalReview({ proposal, onAccepted, onRebuilt, onError }: Pro
 
   async function handleRebuild() {
     setRebuilding(true);
-    setRebuildProgressLine(null);
+    setRebuildProgressLine(t('factory.llmProgress.clientSending'));
     try {
       const result = await apiClient.rebuildProposal(proposal.id, feedback || undefined, (e) => {
         setRebuildProgressLine(llmBlueprintProgressLine(e, t));

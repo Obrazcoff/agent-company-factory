@@ -117,6 +117,8 @@
     "blueprintOverlayTitle": "Чертим твою компанию",
     "blueprintOverlaySub": "LLM может думать дольше обычного — не закрывай вкладку.",
     "llmProgress": {
+      "clientSending": "Отправляем запрос на сервер…",
+      "httpStreamOpen": "Сервер принял задачу — подключаемся к LLM…",
       "preflightStart": "Проверяем доступность хоста LLM…",
       "preflightOk": "Хост ответил (preflight {{ms}} ms) — запускаем запрос к модели…",
       "streamAttempt": "Стриминг ответа — если шлюз поддерживает SSE, пойдёт счётчик символов.",
