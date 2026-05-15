@@ -4,6 +4,7 @@ import type { Locale } from '@/i18n/constants';
 import { DEFAULT_LOCALE } from '@/i18n/constants';
 import { blueprintSystemPrompt, mockDeterministicBlueprint } from '@/llm/locale-prompts';
 import { extractJsonStringFromLlmOutput } from '@/llm/extract-json-from-llm';
+import { preferIpv4DnsOnce } from '@/lib/prefer-ipv4-dns';
 
 export type LlmMessage = {
   role: 'system' | 'user' | 'assistant';
@@ -92,15 +93,28 @@ class OpenAiCompatibleClient implements LlmClient {
     private readonly blueprintJsonMode: boolean,
   ) {}
 
+  private async postCompletions(body: Record<string, unknown>): Promise<Response> {
+    try {
+      return await fetch(this.completionsUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const cause =
+        err instanceof Error && err.cause !== undefined ? ` cause=${String(err.cause)}` : '';
+      throw new Error(
+        `LLM fetch failed for ${this.completionsUrl}: ${msg}${cause}. From this server, the URL must be reachable (DNS, TLS, firewall, IPv6/IPv4).`,
+      );
+    }
+  }
+
   async generate(messages: LlmMessage[]): Promise<string> {
-    const response = await fetch(this.completionsUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ model: this.model, messages, temperature: 0.3 }),
-    });
+    const response = await this.postCompletions({ model: this.model, messages, temperature: 0.3 });
 
     if (!response.ok) {
       const text = await response.text();
@@ -132,14 +146,7 @@ class OpenAiCompatibleClient implements LlmClient {
       payload.response_format = { type: 'json_object' };
     }
 
-    const response = await fetch(this.completionsUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
+    const response = await this.postCompletions(payload);
 
     if (!response.ok) {
       const text = await response.text();
@@ -175,6 +182,7 @@ function defaultEnvRuntime(): LlmRuntimeConfig {
 }
 
 export function createLlmClient(runtime?: LlmRuntimeConfig | null): LlmClient {
+  preferIpv4DnsOnce();
   const cfg = runtime ?? defaultEnvRuntime();
   if (cfg.provider === 'mock') return new MockLlmClient();
 
