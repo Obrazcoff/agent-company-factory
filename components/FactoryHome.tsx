@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import useSWR from 'swr';
@@ -13,24 +13,41 @@ import { Tabs, TabPanel, type Tab } from '@/../components/ui/tabs';
 import { BlueprintCard } from '@/../components/control-plane/BlueprintCard';
 import { OrgChart } from '@/../components/control-plane/OrgChart';
 import { TaskTable } from '@/../components/control-plane/TaskTable';
+import { TaskOrchestrationHint } from '@/../components/control-plane/TaskOrchestrationHint';
 import { ApprovalsList } from '@/../components/control-plane/ApprovalsList';
 import { AuditTimeline } from '@/../components/control-plane/AuditTimeline';
 import { CostPanel } from '@/../components/control-plane/CostPanel';
+import {
+  OrchestratorActivity,
+  type LastOrchestratorRun,
+} from '@/../components/control-plane/OrchestratorActivity';
 import { ProposalReview } from '@/../components/ProposalReview';
+import { useI18n } from '@/../components/i18n/LocaleProvider';
+import { LanguageSwitcher } from '@/../components/i18n/LanguageSwitcher';
 import type { CompanyState } from '@/factory/modules/controlPlane';
+import type { TickResult } from '@/factory/modules/orchestrator';
 import type { CompanyProposal } from '@/factory/domain/types';
-
-const DEFAULT_PROMPT =
-  'Launch an autonomous B2B lead generation company for an AI-concierge service. Find target companies, enrich them, draft personalized outreach, and book qualified discovery calls. Daily budget $50. All outbound emails require human approval before being sent.';
 
 /** Последний company id + эпоха RAM-хранилища (см. `getStorageEpoch` / GET /api/health). */
 const SESSION_COMPANY_ID = 'agent-factory:company-id';
 /** Вместе с company id — эпоха in-memory DB (`getStorageEpoch` в `db.ts`), а не отдельный UUID. */
 const SESSION_SERVER_BOOT_ID = 'agent-factory:server-boot-id';
 
+/** Макс. тиков подряд в «Run until idle» (см. `handleRunUntilIdle`). */
+const MAX_IDLE_TICKS = 50;
+
 export function FactoryHome() {
+  const { t } = useI18n();
+  const defaultMission = useMemo(() => t('factory.defaultMissionPrompt'), [t]);
+  const prevDefaultMission = useRef(defaultMission);
+  const [prompt, setPrompt] = useState(defaultMission);
+  useEffect(() => {
+    if (prevDefaultMission.current !== defaultMission) {
+      setPrompt((p) => (p === prevDefaultMission.current ? defaultMission : p));
+      prevDefaultMission.current = defaultMission;
+    }
+  }, [defaultMission]);
   const { status: authStatus } = useSession();
-  const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
   const [budget, setBudget] = useState(50);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [proposal, setProposal] = useState<CompanyProposal | null>(null);
@@ -98,7 +115,15 @@ export function FactoryHome() {
     };
   }, []);
   const [creating, setCreating] = useState(false);
-  const [ticking, setTicking] = useState(false);
+  /** Прогресс тика: одиночный или цепочка until idle (номер тика для UI). */
+  const [tickPhase, setTickPhase] = useState<null | { mode: 'single' } | { mode: 'until_idle'; n: number }>(
+    null,
+  );
+  const [lastRunEntry, setLastRunEntry] = useState<{ companyId: string; run: LastOrchestratorRun } | null>(
+    null,
+  );
+  const lastRun = companyId && lastRunEntry?.companyId === companyId ? lastRunEntry.run : null;
+  const ticking = tickPhase !== null;
   const [activeTab, setActiveTab] = useState('overview');
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -187,87 +212,146 @@ export function FactoryHome() {
   }
 
   async function handleTick() {
+    if (!companyId) return;
+    const cid = companyId;
     setActionError(null);
-    setTicking(true);
+    setTickPhase({ mode: 'single' });
     try {
-      await apiClient.tick();
+      const t = await apiClient.tick();
+      setLastRunEntry({ companyId: cid, run: { kind: 'single', at: Date.now(), result: t } });
       await mutate();
     } catch (e) {
       setActionError(e instanceof Error ? e.message : String(e));
     } finally {
-      setTicking(false);
+      setTickPhase(null);
     }
   }
 
-  const MAX_IDLE_TICKS = 50;
-
   async function handleRunUntilIdle() {
+    if (!companyId) return;
+    const cid = companyId;
     setActionError(null);
-    setTicking(true);
     try {
+      let last: TickResult | undefined;
       for (let i = 0; i < MAX_IDLE_TICKS; i++) {
+        setTickPhase({ mode: 'until_idle', n: i + 1 });
         const t = await apiClient.tick();
+        last = t;
         await mutate();
-        if (t.executed === 0) break;
+        if (t.executed === 0) {
+          setLastRunEntry({
+            companyId: cid,
+            run: {
+              kind: 'untilIdle',
+              at: Date.now(),
+              tickCount: i + 1,
+              lastResult: t,
+              stoppedBecause: 'idle',
+            },
+          });
+          return;
+        }
+      }
+      if (last) {
+        setLastRunEntry({
+          companyId: cid,
+          run: {
+            kind: 'untilIdle',
+            at: Date.now(),
+            tickCount: MAX_IDLE_TICKS,
+            lastResult: last,
+            stoppedBecause: 'cap',
+          },
+        });
       }
     } catch (e) {
       setActionError(e instanceof Error ? e.message : String(e));
     } finally {
-      setTicking(false);
+      setTickPhase(null);
     }
   }
 
   const queuedRunning = (data?.stats?.queued ?? 0) + (data?.stats?.running ?? 0);
-  const tabs: Tab[] = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'tasks', label: 'Tasks', badge: queuedRunning > 0 ? queuedRunning : undefined },
-    { id: 'approvals', label: 'Approvals', badge: data?.pendingApprovals?.length ?? 0 },
-    { id: 'audit', label: 'Audit' },
-  ];
+  const tabs: Tab[] = useMemo(
+    () => [
+      { id: 'overview', label: t('factory.tabOverview') },
+      { id: 'tasks', label: t('factory.tabTasks'), badge: queuedRunning > 0 ? queuedRunning : undefined },
+      { id: 'approvals', label: t('factory.tabApprovals'), badge: data?.pendingApprovals?.length ?? 0 },
+      { id: 'audit', label: t('factory.tabAudit') },
+    ],
+    [t, queuedRunning, data?.pendingApprovals?.length],
+  );
 
   return (
-    <main className="max-w-7xl mx-auto p-6 space-y-6">
-      <header className="flex items-end justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-xl font-semibold">Agent Company Factory</h1>
-          <p className="text-xs text-[var(--color-muted)]">
-            Architectural MVP — control plane for autonomous agent companies
+    <main className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6 md:space-y-10 md:px-8 md:py-12 lg:max-w-7xl">
+      <header className="flex flex-wrap items-end justify-between gap-6">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-fg)] md:text-3xl">
+            {t('factory.title')}
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm text-[var(--color-muted)] md:text-base">
+            {t('factory.subtitle')}
           </p>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <nav className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1 text-xs text-[var(--color-muted)]">
-            {authStatus === 'authenticated' ? (
-              <>
-                <Link href="/settings/llm" className="underline hover:text-gray-800">
-                  LLM / project
-                </Link>
-                <button
-                  type="button"
-                  className="underline hover:text-gray-800"
-                  onClick={() => void signOut()}
-                >
-                  Sign out
-                </button>
-              </>
-            ) : (
-              <>
-                <Link href="/login" className="underline hover:text-gray-800">
-                  Login
-                </Link>
-                <Link href="/register" className="underline hover:text-gray-800">
-                  Register
-                </Link>
-              </>
-            )}
-          </nav>
+        <div className="flex flex-col items-end gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <LanguageSwitcher />
+            <nav className="flex flex-wrap items-center justify-end gap-x-5 gap-y-2 text-sm text-[var(--color-muted)] md:text-base">
+              {authStatus === 'authenticated' ? (
+                <>
+                  <Link href="/settings/llm" className="underline hover:text-[var(--color-fg)]">
+                    {t('nav.llmProject')}
+                  </Link>
+                  {data && (
+                    <button
+                      type="button"
+                      className="underline hover:text-[var(--color-fg)]"
+                      disabled={ticking}
+                      onClick={() => {
+                        if (!window.confirm(t('nav.newCompanyConfirm'))) return;
+                        setCompanyId(null);
+                        setLastRunEntry(null);
+                        setActiveTab('overview');
+                        setPollPaused(false);
+                        try {
+                          sessionStorage.removeItem(SESSION_COMPANY_ID);
+                          sessionStorage.removeItem(SESSION_SERVER_BOOT_ID);
+                        } catch {
+                          /* ignore */
+                        }
+                      }}
+                    >
+                      {t('nav.newCompany')}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="underline hover:text-[var(--color-fg)]"
+                    onClick={() => void signOut({ redirectTo: '/' })}
+                  >
+                    {t('nav.signOut')}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link href="/login" className="underline hover:text-[var(--color-fg)]">
+                    {t('nav.login')}
+                  </Link>
+                  <Link href="/register" className="underline hover:text-[var(--color-fg)]">
+                    {t('nav.register')}
+                  </Link>
+                </>
+              )}
+            </nav>
+          </div>
           {data && (
-            <div className="flex flex-wrap gap-2 items-center justify-end">
+            <div className="flex flex-wrap items-center justify-end gap-2 md:gap-3">
               <Badge tone={data.company.status === 'active' ? 'success' : 'warning'}>
                 {data.company.status}
               </Badge>
               <Button
                 variant="secondary"
-                size="sm"
+                className="h-11 min-w-[8rem] text-sm md:h-12 md:text-base"
                 onClick={async () => {
                   setActionError(null);
                   try {
@@ -278,13 +362,26 @@ export function FactoryHome() {
                   }
                 }}
               >
-                {data.company.status === 'active' ? 'Pause company' : 'Resume company'}
+                {data.company.status === 'active' ? t('factory.pauseCompany') : t('factory.resumeCompany')}
               </Button>
-              <Button variant="secondary" size="sm" onClick={handleTick} disabled={ticking}>
-                {ticking ? 'Ticking…' : 'Run tick'}
+              <Button
+                variant="secondary"
+                className="h-11 text-sm md:h-12 md:text-base"
+                onClick={handleTick}
+                disabled={ticking}
+                title={t('factory.runTickTitle')}
+              >
+                {tickPhase?.mode === 'single' ? t('factory.runTickShort') : t('factory.runTick')}
               </Button>
-              <Button size="sm" onClick={handleRunUntilIdle} disabled={ticking}>
-                Run until idle
+              <Button
+                className="h-11 text-sm md:h-12 md:text-base"
+                onClick={handleRunUntilIdle}
+                disabled={ticking}
+                title={t('factory.runUntilIdleTitle', { max: String(MAX_IDLE_TICKS) })}
+              >
+                {tickPhase?.mode === 'until_idle'
+                  ? t('factory.untilIdleProgress', { n: String(tickPhase.n) })
+                  : t('factory.runUntilIdle')}
               </Button>
             </div>
           )}
@@ -292,80 +389,106 @@ export function FactoryHome() {
       </header>
 
       {data && (
-        <p className="text-[11px] text-[var(--color-muted)] -mt-2">
-          Планировщик MVP — <strong>тиковый</strong>: один тик забирает ограниченную пачку задач. «Run until
-          idle» повторяет тик, пока в тике не было <code className="text-[10px]">executed === 0</code> (макс.{' '}
-          {MAX_IDLE_TICKS}). Состояние компании в RAM процесса; LLM-профиль проекта — после входа и{' '}
-          <code className="text-[10px]">factory_project_id</code> в localStorage.
+        <p className="-mt-2 text-sm leading-relaxed text-[var(--color-muted)] md:text-base">
+          {t('factory.scheduler', { maxTicks: String(MAX_IDLE_TICKS) })}
         </p>
       )}
 
       {actionError && (
         <div
           role="alert"
-          className="flex items-start justify-between gap-3 rounded-md border border-[var(--color-danger)]/50 bg-[var(--color-danger)]/10 px-3 py-2 text-sm text-[var(--color-danger)]"
+          className="flex items-start justify-between gap-4 rounded-lg border border-[var(--color-danger)]/50 bg-[var(--color-danger)]/10 px-4 py-3 text-base text-[var(--color-danger)] md:px-5 md:py-4"
         >
           <span className="min-w-0 break-words">{actionError}</span>
           <button
             type="button"
-            className="shrink-0 text-xs underline opacity-80 hover:opacity-100"
+            className="shrink-0 text-sm underline opacity-80 hover:opacity-100"
             onClick={() => setActionError(null)}
           >
-            Закрыть
+            {t('common.close')}
           </button>
         </div>
       )}
 
       {!companyId && !proposal && (
-        <Card>
-          <CardHeader>
-            <CardTitle>1. Define a goal</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3">
-              <Textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={6} />
-              <div className="flex items-center gap-3 flex-wrap">
-                <label className="text-xs text-[var(--color-muted)]">Daily budget USD</label>
-                <Input
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={budget}
-                  onChange={(e) => setBudget(Number(e.target.value))}
-                  className="w-32"
+        <div className="space-y-6">
+          <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)]/40 px-5 py-5 md:px-7 md:py-6">
+            <h2 className="text-lg font-semibold text-[var(--color-fg)] md:text-xl">
+              {t('factory.howToTitle')}
+            </h2>
+            <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm text-[var(--color-muted)] marker:text-[var(--color-accent)] md:text-base md:leading-relaxed">
+              <li>{t('factory.howTo1')}</li>
+              <li>{t('factory.howTo2')}</li>
+              <li>{t('factory.howTo3')}</li>
+            </ol>
+            <p className="mt-4 text-sm text-[var(--color-muted)] md:text-base">{t('factory.howToRam')}</p>
+          </section>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('factory.defineGoal')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-5 md:gap-6">
+                <Textarea
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  rows={8}
+                  className="min-h-[220px] font-sans md:min-h-[260px]"
                 />
-                <Button onClick={handleDraftProposal} disabled={drafting || creating || prompt.length < 10}>
-                  {drafting ? 'Generating blueprint…' : '→ Review Blueprint'}
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={handleCreate}
-                  disabled={creating || drafting || prompt.length < 10}
-                >
-                  {creating ? 'Creating…' : 'Skip review'}
-                </Button>
+                <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <label className="text-sm font-medium text-[var(--color-muted)] md:text-base">
+                      {t('factory.dailyBudget')}
+                    </label>
+                    <Input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={budget}
+                      onChange={(e) => setBudget(Number(e.target.value))}
+                      className="w-full sm:w-36 md:w-40"
+                    />
+                  </div>
+                  <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:justify-end">
+                    <Button
+                      className="h-12 min-h-12 w-full px-6 text-base sm:w-auto md:h-14 md:px-8 md:text-lg"
+                      onClick={handleDraftProposal}
+                      disabled={drafting || creating || prompt.length < 10}
+                    >
+                      {drafting ? t('factory.generatingBlueprint') : t('factory.reviewBlueprintBtn')}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      className="h-12 min-h-12 w-full px-6 text-base sm:w-auto md:h-14 md:px-8 md:text-lg"
+                      onClick={handleCreate}
+                      disabled={creating || drafting || prompt.length < 10}
+                    >
+                      {creating ? t('factory.creating') : t('factory.skipReview')}
+                    </Button>
+                  </div>
+                </div>
+                {error && <p className="text-sm text-[var(--color-danger)] md:text-base">{error}</p>}
+                <p className="text-sm leading-relaxed text-[var(--color-muted)] md:text-base">
+                  {t('factory.goalHint')}
+                </p>
               </div>
-              {error && <p className="text-xs text-[var(--color-danger)]">{error}</p>}
-              <p className="text-[11px] text-[var(--color-muted)]">
-                <strong>Review Blueprint</strong> — просмотр и редактирование предложения перед созданием
-                компании. <strong>Skip review</strong> — создать сразу. Данные только в RAM процесса dev.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {proposal && !companyId && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>2. Review Blueprint</CardTitle>
+              <CardTitle>{t('factory.reviewTitle')}</CardTitle>
               <button
                 type="button"
                 onClick={() => setProposal(null)}
-                className="text-xs text-[var(--color-muted)] underline hover:text-gray-700"
+                className="text-sm text-[var(--color-muted)] underline hover:text-[var(--color-fg)] md:text-base"
               >
-                ← Back
+                {t('factory.back')}
               </button>
             </div>
           </CardHeader>
@@ -383,26 +506,24 @@ export function FactoryHome() {
 
       {companyId && isLoading && !data && !swrError && (
         <Card>
-          <CardContent>Loading state…</CardContent>
+          <CardContent className="py-8 text-center text-base text-[var(--color-muted)] md:text-lg">
+            {t('factory.loadingState')}
+          </CardContent>
         </Card>
       )}
 
       {companyId && swrError && (
         <Card>
           <CardContent>
-            <p className="text-sm text-[var(--color-danger)] mb-2">
-              Company state unavailable: {swrError.message}
+            <p className="mb-3 text-base text-[var(--color-danger)] md:text-lg">
+              {t('factory.companyUnavailable')} {swrError.message}
             </p>
-            <p className="text-xs text-[var(--color-muted)] mb-3">
-              Данные не в Postgres/SQLite — только RAM процесса Next.js (
-              <code className="text-[10px]">src/factory/store/db.ts</code>
-              ). После перезапуска <code className="text-[10px]">npm run dev</code> или HMR, сбросившего
-              модуль, сервер «забывает» компании; браузер мог сохранить старый id в sessionStorage — нажми
-              Reset и создай компанию заново.
+            <p className="mb-4 text-sm leading-relaxed text-[var(--color-muted)] md:text-base">
+              {t('factory.ramExplainer')}
             </p>
             <Button
               variant="secondary"
-              size="sm"
+              className="h-11 text-base"
               onClick={() => {
                 setCompanyId(null);
                 try {
@@ -413,7 +534,7 @@ export function FactoryHome() {
                 }
               }}
             >
-              Reset
+              {t('factory.reset')}
             </Button>
           </CardContent>
         </Card>
@@ -425,6 +546,13 @@ export function FactoryHome() {
             <BlueprintCard company={data.company} />
             <CostPanel company={data.company} costByAgent={data.costByAgent} />
           </div>
+
+          <OrchestratorActivity
+            company={data.company}
+            stats={data.stats}
+            pendingApprovalCount={data.pendingApprovals.length}
+            lastRun={lastRun}
+          />
 
           <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
@@ -448,6 +576,17 @@ export function FactoryHome() {
               agents={data.agents}
               onMutate={() => mutate()}
               onApiError={setActionError}
+              footer={
+                <TaskOrchestrationHint
+                  company={data.company}
+                  tasks={data.tasks}
+                  agents={data.agents}
+                  onRunTick={handleTick}
+                  onRunUntilIdle={handleRunUntilIdle}
+                  tickPhase={tickPhase}
+                  maxIdleTicks={MAX_IDLE_TICKS}
+                />
+              }
             />
           </TabPanel>
 

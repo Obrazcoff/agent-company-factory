@@ -1,3 +1,5 @@
+import type { Locale } from '@/i18n/constants';
+
 export type TenantId = string;
 export type CompanyId = string;
 export type AgentId = string;
@@ -43,6 +45,8 @@ export type Company = {
   budget: Budget;
   status: CompanyStatus;
   createdAt: ISODate;
+  /** UI / demo copy (e.g. outreach) — from request locale at company creation. */
+  contentLocale?: Locale;
 };
 
 export type ProposalId = string;

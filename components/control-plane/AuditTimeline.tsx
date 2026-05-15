@@ -1,5 +1,8 @@
+'use client';
+
 import { Card, CardHeader, CardTitle, CardContent } from '@/../components/ui/card';
 import { Badge } from '@/../components/ui/badge';
+import { useI18n } from '@/../components/i18n/LocaleProvider';
 import type { AuditEvent } from '@/factory/domain/types';
 
 const KIND_TONE: Record<string, 'accent' | 'success' | 'warning' | 'danger' | 'neutral'> = {
@@ -27,11 +30,14 @@ const KIND_TONE: Record<string, 'accent' | 'success' | 'warning' | 'danger' | 'n
 };
 
 export function AuditTimeline({ audits }: { audits: AuditEvent[] }) {
+  const { t } = useI18n();
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Audit timeline</CardTitle>
-        <span className="text-xs text-[var(--color-muted)]">{audits.length} events</span>
+        <CardTitle>{t('audit.title')}</CardTitle>
+        <span className="text-xs text-[var(--color-muted)]">
+          {t('audit.events', { count: String(audits.length) })}
+        </span>
       </CardHeader>
       <CardContent>
         <div className="space-y-1.5 max-h-[480px] overflow-y-auto pr-1">
@@ -48,10 +54,7 @@ export function AuditTimeline({ audits }: { audits: AuditEvent[] }) {
               <span className="text-[var(--color-fg)]/80 font-mono truncate">
                 {Object.entries(e.payload)
                   .slice(0, 4)
-                  .map(
-                    ([k, v]) =>
-                      `${k}=${typeof v === 'object' ? JSON.stringify(v).slice(0, 40) : String(v).slice(0, 40)}`,
-                  )
+                  .map(([k, v]) => `${k}=${typeof v === 'object' ? JSON.stringify(v) : String(v)}`)
                   .join(' ')}
               </span>
             </div>

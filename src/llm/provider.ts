@@ -1,5 +1,8 @@
 import type { Blueprint } from '@/factory/domain/types';
 import { BlueprintSchema } from '@/factory/domain/schemas';
+import type { Locale } from '@/i18n/constants';
+import { DEFAULT_LOCALE } from '@/i18n/constants';
+import { blueprintSystemPrompt, mockDeterministicBlueprint } from '@/llm/locale-prompts';
 
 export type LlmMessage = {
   role: 'system' | 'user' | 'assistant';
@@ -14,7 +17,11 @@ export type LlmCallResult<T> = {
 
 export type LlmClient = {
   generate(messages: LlmMessage[]): Promise<string>;
-  generateBlueprint(missionPrompt: string, dailyBudgetUsd: number): Promise<LlmCallResult<Blueprint>>;
+  generateBlueprint(
+    missionPrompt: string,
+    dailyBudgetUsd: number,
+    locale?: Locale,
+  ): Promise<LlmCallResult<Blueprint>>;
 };
 
 /** Resolved from env or per-project DB profile (OpenAI-compatible HTTP). */
@@ -28,78 +35,12 @@ export type LlmRuntimeConfig = {
 
 const LLM_TEXT_COST_USD = 0.01;
 
-const BLUEPRINT_SYSTEM_PROMPT = (
-  dailyBudgetUsd: number,
-) => `You design AI agent companies. Reply ONLY with JSON matching this schema (no markdown, no commentary):
-{
-  "mission": string,
-  "kpis": [{"name": string, "target": number|string, "unit"?: string}],
-  "dailyCapUsd": number,
-  "approvals": string[],
-  "agents": [{"role": "CEO"|"PM"|"Researcher"|"Outreach"|"Ops", "name": string, "systemPrompt": string, "permissions": string[]}],
-  "initialTasks": [{"kind": string, "role": "CEO"|"PM"|"Researcher"|"Outreach"|"Ops", "input": object, "dependsOnIndex"?: number[]}]
-}
-Constraints: at least 3 agents (include PM + Researcher + Outreach), at least 5 initialTasks, dailyCapUsd = ${dailyBudgetUsd}, approvals must include "gmail" if any outreach happens.`;
-
 function lastUserContent(messages: LlmMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const message = messages[i];
     if (message.role === 'user') return message.content;
   }
   return '';
-}
-
-function deterministicBlueprint(missionPrompt: string, dailyBudgetUsd: number): Blueprint {
-  return {
-    mission:
-      'Run an autonomous B2B lead generation company that finds prospects, enriches them, prepares outreach, and books qualified discovery calls under a strict daily budget and human approval for outbound communication.',
-    kpis: [
-      { name: 'qualified_leads_per_day', target: 10, unit: 'leads' },
-      { name: 'booked_calls_per_week', target: 5, unit: 'calls' },
-      { name: 'cost_per_lead_usd', target: 5, unit: 'usd' },
-    ],
-    dailyCapUsd: dailyBudgetUsd,
-    approvals: ['gmail', 'calendar'],
-    agents: [
-      {
-        role: 'PM',
-        name: 'PM-Atlas',
-        systemPrompt:
-          'You are the project manager. You decompose company goals into concrete tasks, balance workload across agents, and enforce KPI focus. You never call external tools yourself.',
-        permissions: [],
-      },
-      {
-        role: 'Researcher',
-        name: 'Researcher-Nova',
-        systemPrompt:
-          'You research B2B prospects using web search and CRM. You output structured lead lists with company name, industry, size, and rationale. You never write outbound messages.',
-        permissions: ['web_search', 'crm', 'sheets'],
-      },
-      {
-        role: 'Outreach',
-        name: 'Outreach-Vega',
-        systemPrompt:
-          'You craft personalized outreach drafts based on enriched lead data. You produce email drafts that always require human approval before being sent.',
-        permissions: ['gmail', 'crm'],
-      },
-      {
-        role: 'Ops',
-        name: 'Ops-Lyra',
-        systemPrompt:
-          'You handle follow-ups, scheduling, and produce daily reports. Calendar invites require human approval.',
-        permissions: ['calendar', 'sheets', 'crm'],
-      },
-    ],
-    initialTasks: [
-      { kind: 'research_companies', role: 'Researcher', input: { count: 10, missionPrompt } },
-      { kind: 'enrich_leads', role: 'Researcher', input: {}, dependsOnIndex: [0] },
-      { kind: 'draft_outreach', role: 'Outreach', input: { variant: 'A' }, dependsOnIndex: [1] },
-      { kind: 'draft_outreach', role: 'Outreach', input: { variant: 'B' }, dependsOnIndex: [1] },
-      { kind: 'draft_outreach', role: 'Outreach', input: { variant: 'C' }, dependsOnIndex: [1] },
-      { kind: 'schedule_followups', role: 'Ops', input: {}, dependsOnIndex: [2, 3, 4] },
-      { kind: 'daily_report', role: 'Ops', input: {}, dependsOnIndex: [5] },
-    ],
-  };
 }
 
 class MockLlmClient implements LlmClient {
@@ -117,8 +58,12 @@ class MockLlmClient implements LlmClient {
     ].join('\n');
   }
 
-  async generateBlueprint(missionPrompt: string, dailyBudgetUsd: number): Promise<LlmCallResult<Blueprint>> {
-    const data = deterministicBlueprint(missionPrompt, dailyBudgetUsd);
+  async generateBlueprint(
+    missionPrompt: string,
+    dailyBudgetUsd: number,
+    locale: Locale = DEFAULT_LOCALE,
+  ): Promise<LlmCallResult<Blueprint>> {
+    const data = mockDeterministicBlueprint(missionPrompt, dailyBudgetUsd, locale);
     return {
       data,
       raw: JSON.stringify(data),
@@ -161,8 +106,12 @@ class OpenAiCompatibleClient implements LlmClient {
     return json.choices?.[0]?.message?.content ?? '';
   }
 
-  async generateBlueprint(missionPrompt: string, dailyBudgetUsd: number): Promise<LlmCallResult<Blueprint>> {
-    const systemPrompt = BLUEPRINT_SYSTEM_PROMPT(dailyBudgetUsd);
+  async generateBlueprint(
+    missionPrompt: string,
+    dailyBudgetUsd: number,
+    locale: Locale = DEFAULT_LOCALE,
+  ): Promise<LlmCallResult<Blueprint>> {
+    const systemPrompt = blueprintSystemPrompt(dailyBudgetUsd, locale);
 
     const response = await fetch(this.completionsUrl, {
       method: 'POST',

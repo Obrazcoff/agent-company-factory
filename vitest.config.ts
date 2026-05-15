@@ -3,6 +3,8 @@ import path from 'node:path';
 
 export default defineConfig({
   test: {
+    /** Не тянуть реальный LLM из `.env` разработчика (neurohub/openai) — интеграционные тесты детерминированы на mock. */
+    env: { LLM_PROVIDER: 'mock' },
     environment: 'node',
     include: ['tests/**/*.test.ts'],
     testTimeout: 10_000,

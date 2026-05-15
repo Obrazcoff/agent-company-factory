@@ -12,6 +12,25 @@ const PatchSchema = z.object({
   model: z.string().max(120).nullable().optional(),
 });
 
+/** Не отдаём apiKey в JSON клиенту (даже владельцу проекта). */
+function publicLlmProfile(p: {
+  id: string;
+  projectId: string;
+  provider: string;
+  baseUrl: string | null;
+  apiKey: string | null;
+  model: string | null;
+}) {
+  return {
+    id: p.id,
+    projectId: p.projectId,
+    provider: p.provider,
+    baseUrl: p.baseUrl,
+    model: p.model,
+    hasApiKey: Boolean(p.apiKey?.trim()),
+  };
+}
+
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const prisma = getPrisma();
@@ -46,7 +65,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       },
     });
 
-    return NextResponse.json({ profile });
+    return NextResponse.json({ profile: publicLlmProfile(profile) });
   } catch (error) {
     return internal(error);
   }

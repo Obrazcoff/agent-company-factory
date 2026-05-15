@@ -2,6 +2,8 @@ import { db } from '../store/db';
 import { newId, nowIso } from '../domain/ids';
 import { appendAudit } from '../audit/audit';
 import { createLlmClient, type LlmClient } from '@/llm/provider';
+import type { Locale } from '@/i18n/constants';
+import { DEFAULT_LOCALE } from '@/i18n/constants';
 import { BlueprintSchema } from '../domain/schemas';
 import { FACTORY_DEFAULTS } from '../config';
 import type { Agent, AgentRole, Blueprint, Company, Task } from '../domain/types';
@@ -42,7 +44,7 @@ export async function intakeAndCreateCompany(
   req: IntakeRequest,
   prebuiltBlueprint?: Blueprint,
   existingCompanyId?: string,
-  deps?: { llm?: LlmClient },
+  deps?: { llm?: LlmClient; locale?: Locale },
 ): Promise<IntakeResult> {
   const dailyBudget = req.dailyBudgetUsd ?? FACTORY_DEFAULTS.dailyBudgetUsd;
   let blueprint: Blueprint;
@@ -52,7 +54,8 @@ export async function intakeAndCreateCompany(
     blueprint = prebuiltBlueprint;
   } else {
     const llm = deps?.llm ?? createLlmClient();
-    const blueprintCall = await llm.generateBlueprint(req.missionPrompt, dailyBudget);
+    const locale = deps?.locale ?? DEFAULT_LOCALE;
+    const blueprintCall = await llm.generateBlueprint(req.missionPrompt, dailyBudget, locale);
     blueprint = BlueprintSchema.parse(blueprintCall.data);
     llmCostUsd = blueprintCall.costUsd;
   }
@@ -77,6 +80,7 @@ export async function intakeAndCreateCompany(
       },
       status: 'active',
       createdAt: nowIso(),
+      contentLocale: deps?.locale,
     };
     db().companies.create(company);
   }

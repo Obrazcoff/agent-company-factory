@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/../components/ui/car
 import { Badge } from '@/../components/ui/badge';
 import { Button } from '@/../components/ui/button';
 import { AgentAvatar } from '@/../components/AgentAvatar';
+import { useI18n } from '@/../components/i18n/LocaleProvider';
 import { apiClient } from '@/../lib/api-client';
 import type { Agent } from '@/factory/domain/types';
 
@@ -23,6 +24,7 @@ export function OrgChart({
   onMutate: () => void;
   onApiError?: (message: string) => void;
 }) {
+  const { t } = useI18n();
   const grouped = ROLE_ORDER.map((role) => ({
     role,
     agents: agents.filter((a) => a.role === role),
@@ -31,8 +33,10 @@ export function OrgChart({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Team</CardTitle>
-        <span className="text-xs text-[var(--color-muted)]">{agents.length} agents</span>
+        <CardTitle>{t('org.title')}</CardTitle>
+        <span className="text-xs text-[var(--color-muted)]">
+          {t('org.agents', { count: String(agents.length) })}
+        </span>
       </CardHeader>
       <CardContent>
         <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
@@ -58,7 +62,7 @@ export function OrgChart({
                     </div>
                   </div>
                   <div className="text-[11px] text-[var(--color-muted)] mb-2">
-                    spent ${a.costToDateUsd.toFixed(3)}
+                    {t('org.spent', { amount: a.costToDateUsd.toFixed(3) })}
                   </div>
                   <div className="flex flex-wrap gap-1 mb-2">
                     {a.permissions.map((p) => (
@@ -82,7 +86,7 @@ export function OrgChart({
                       }
                     }}
                   >
-                    {a.status === 'paused' ? 'Resume' : 'Pause'}
+                    {a.status === 'paused' ? t('org.resume') : t('org.pause')}
                   </Button>
                 </div>
               ))}

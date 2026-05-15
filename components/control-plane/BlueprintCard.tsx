@@ -1,14 +1,18 @@
+'use client';
+
 import { Card, CardHeader, CardTitle, CardContent } from '@/../components/ui/card';
 import { Badge } from '@/../components/ui/badge';
+import { useI18n } from '@/../components/i18n/LocaleProvider';
 import type { Company } from '@/factory/domain/types';
 
 export function BlueprintCard({ company }: { company: Company }) {
+  const { t } = useI18n();
   const budget = company.budget;
   const pct = Math.min(100, Math.round((budget.spentTodayUsd / budget.dailyCapUsd) * 100));
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Mission & budget</CardTitle>
+        <CardTitle>{t('blueprint.title')}</CardTitle>
         <Badge tone={company.status === 'active' ? 'success' : 'warning'}>{company.status}</Badge>
       </CardHeader>
       <CardContent>
@@ -21,9 +25,12 @@ export function BlueprintCard({ company }: { company: Company }) {
             </Badge>
           ))}
         </div>
-        <div className="text-xs text-[var(--color-muted)] mb-1">
-          Spent today: ${budget.spentTodayUsd.toFixed(3)} / ${budget.dailyCapUsd.toFixed(2)} (hard $
-          {budget.hardCapUsd.toFixed(2)})
+        <div className="text-sm text-[var(--color-muted)] mb-2 md:text-base">
+          {t('blueprint.spent', {
+            spent: budget.spentTodayUsd.toFixed(3),
+            daily: budget.dailyCapUsd.toFixed(2),
+            hard: budget.hardCapUsd.toFixed(2),
+          })}
         </div>
         <div className="h-2 w-full rounded-full bg-[var(--color-surface-2)] overflow-hidden">
           <div className="h-full bg-[var(--color-accent)] transition-all" style={{ width: `${pct}%` }} />

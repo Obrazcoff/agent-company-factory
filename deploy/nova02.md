@@ -1,6 +1,10 @@
 # Деплой на nova-02 (`c-fab.nova01.click`)
 
-VPS: **nova-02** (`95.215.206.161`), приложение в **`/opt/c-fab-app`**, systemd **`c-fab-app`**, upstream **`127.0.0.1:3010`**, nginx vhost **`c-fab.nova01.click`** (TLS через Let’s Encrypt, автообновление certbot).
+Корень репозитория на диске может называться как угодно (например **`ai-agent-interview`** локально и **`agent-company-factory`** в git) — на сервере важен каталог **`/opt/c-fab-app`** и unit **`c-fab-app`**.
+
+VPS: **nova-02** (`95.215.206.161`, **SSH порт 22** — `sshd` слушает `:22`), приложение в **`/opt/c-fab-app`**, systemd **`c-fab-app`**, upstream **`127.0.0.1:3010`**, nginx vhost **`c-fab.nova01.click`** (TLS через Let’s Encrypt, автообновление certbot).
+
+Пример unit systemd: **`deploy/c-fab-app.service.example`** (путь к Node из nvm на сервере проверь командой `ls /root/.nvm/versions/node/`).
 
 ## Node 20 и другие проекты
 
@@ -16,14 +20,19 @@ VPS: **nova-02** (`95.215.206.161`), приложение в **`/opt/c-fab-app`*
 
 ## Порядок деплоя (рекомендуемый)
 
-1. **Локально** — коммит, `npm run verify` (по желанию).
-2. **Секреты только на сервере** — файл **`/opt/c-fab-app/.env`** в rsync **не** входит. Меняй там `DATABASE_URL`, ключи LLM, при смене домена — `AUTH_URL`.
+1. **Локально** — при желании `./scripts/deploy-preflight.sh` (синтаксис `deploy-nova02.sh` + `npm run check`). Полная проверка: `VERIFY=1 ./scripts/deploy-nova02.sh`.
+2. **Секреты только на сервере** — файл **`/opt/c-fab-app/.env`** в rsync **не** входит. Меняй там `DATABASE_URL`, ключи LLM, при смене домена — `AUTH_URL` / `NEXTAUTH_URL`.
 3. **Выгрузка кода** — из корня репо:
+
    ```bash
    ./scripts/deploy-nova02.sh
    ```
-   Скрипт: `rsync` → на сервере `nvm use 20` → `npm ci` → `prisma generate` → `next build` → `systemctl restart c-fab-app`.
-4. **База данных** — после первого деплоя с непустым `DATABASE_URL` см. раздел «База данных» ниже (`prisma migrate deploy`).
+
+   Опции: **`VERIFY=1`** — перед rsync локально `npm run verify`. **`MIGRATE=1`** — на сервере после `prisma generate` выполнится `source .env && prisma migrate deploy` (нужен рабочий `DATABASE_URL` в `.env` на сервере). Другой хост SSH: **`SSH_HOST=my-host`**. Прыжок через bastion/VPS: **`PROXY_JUMP=ubuntu@57.131.31.52`** (когда до nova-02 прямой TCP недоступен).
+
+   Скрипт: `rsync` (с таймаутом SSH) → на сервере `nvm use 20` → `npm ci` → `prisma generate` → [опционально migrate] → `next build` → `systemctl restart c-fab-app`.
+
+4. **База данных** — если не используешь `MIGRATE=1`, миграции вручную один раз см. раздел «База данных» ниже (`prisma migrate deploy`).
 5. **Проверка** — `ssh nova-02 'systemctl status c-fab-app --no-pager'`, затем в браузере `https://c-fab.nova01.click/`.
 
 ## База данных (Neon / Postgres)

@@ -14,13 +14,14 @@ export function Tabs({
   onChange: (id: string) => void;
 }) {
   return (
-    <div className="flex gap-1 border-b border-[var(--color-border)]">
+    <div className="flex flex-wrap gap-1 border-b border-[var(--color-border)]">
       {tabs.map((t) => (
         <button
           key={t.id}
+          type="button"
           onClick={() => onChange(t.id)}
           className={cn(
-            'px-3 py-2 text-sm font-medium border-b-2 transition -mb-[1px]',
+            '-mb-px border-b-2 px-4 py-3 text-base font-medium transition md:px-5 md:text-lg',
             active === t.id
               ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
               : 'border-transparent text-[var(--color-muted)] hover:text-[var(--color-fg)]',
@@ -28,7 +29,7 @@ export function Tabs({
         >
           {t.label}
           {typeof t.badge === 'number' && t.badge > 0 ? (
-            <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-[var(--color-accent)]/20 text-[var(--color-accent)] text-[10px] font-semibold px-1.5 py-0.5">
+            <span className="ml-2 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-[var(--color-accent)]/20 px-2 py-0.5 text-xs font-semibold text-[var(--color-accent)]">
               {t.badge}
             </span>
           ) : null}
@@ -48,5 +49,5 @@ export function TabPanel({
   children: ReactNode;
 }) {
   if (active !== value) return null;
-  return <div className="py-4">{children}</div>;
+  return <div className="py-6 md:py-8">{children}</div>;
 }

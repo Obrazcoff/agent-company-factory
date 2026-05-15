@@ -4,35 +4,39 @@ import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
 import { Button } from '@/../components/ui/button';
+import { useI18n } from '@/../components/i18n/LocaleProvider';
+import { LanguageSwitcher } from '@/../components/i18n/LanguageSwitcher';
 
 type Props = {
   googleEnabled: boolean;
 };
 
+/** Официальная многоцветная «G» (viewBox 24×24), не ужимать ниже ~20px — иначе мылится. */
 function GoogleIcon() {
   return (
-    <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" aria-hidden>
-      <path
-        fill="#EA4335"
-        d="M12 10.2v3.6h5.1c-.2 1-1.2 3-3.5 3-2.1 0-3.9-1.8-3.9-4s1.8-4 3.9-4c1.2 0 2 .5 2.5.9l1.9-1.9C16.5 6.7 14.5 6 12 6 7.6 6 4 9.6 4 14s3.6 8 8 8c4.6 0 7.7-3.2 7.7-7.7 0-.5-.1-1.1-.2-1.6H12z"
-      />
+    <svg className="h-6 w-6 shrink-0" viewBox="0 0 24 24" aria-hidden>
       <path
         fill="#4285F4"
-        d="M4.3 7.7C3.5 9.1 3 10.7 3 12s.5 2.9 1.3 4.3l3.3-2.6C7.1 12.7 7 12.4 7 12s.1-.7.2-1.1L4.3 7.7z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M12 21c2.4 0 4.5-.8 6-2.2l-3.3-2.6c-.8.5-1.9.8-2.7.8-2.1 0-3.9-1.4-4.5-3.3l-3.3 2.6C7.1 19.7 9.4 21 12 21z"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
       />
       <path
         fill="#34A853"
-        d="M21.6 12.2c0-.7-.1-1.4-.3-2H12v4h5.4c-.3 1.3-1.1 2.4-2.4 3.2l3.3 2.6c1.9-1.8 3.3-4.5 3.3-7.8z"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
       />
     </svg>
   );
 }
 
 export function LoginForm({ googleEnabled }: Props) {
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +54,7 @@ export function LoginForm({ googleEnabled }: Props) {
         redirect: false,
       });
       if (res?.error) {
-        setError('Invalid email or password');
+        setError(t('login.errInvalid'));
         return;
       }
       window.location.href = '/';
@@ -65,14 +69,17 @@ export function LoginForm({ googleEnabled }: Props) {
     try {
       await signIn('google', { callbackUrl: '/' });
     } catch {
-      setError('Google sign-in failed');
+      setError(t('login.errGoogle'));
     } finally {
       setGoogleLoading(false);
     }
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden px-4 py-12">
+    <div className="relative min-h-screen overflow-hidden px-5 py-16 sm:px-8 sm:py-20 md:py-28">
+      <div className="absolute right-5 top-5 z-20 sm:right-8">
+        <LanguageSwitcher />
+      </div>
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 opacity-40"
@@ -83,71 +90,81 @@ export function LoginForm({ googleEnabled }: Props) {
           `,
         }}
       />
-      <div className="relative z-10 mx-auto w-full max-w-md">
-        <div className="mb-8 text-center">
+      <div className="relative z-10 mx-auto w-full max-w-lg md:max-w-xl">
+        <div className="mb-10 text-center md:mb-12">
           <Link
             href="/"
-            className="text-xs font-medium uppercase tracking-widest text-[var(--color-muted)] hover:text-[var(--color-fg)]"
+            className="text-sm font-medium uppercase tracking-widest text-[var(--color-muted)] hover:text-[var(--color-fg)]"
           >
-            ← Back to landing
+            {t('login.back')}
           </Link>
-          <h1 className="mt-6 text-2xl font-semibold tracking-tight text-[var(--color-fg)]">Welcome back</h1>
-          <p className="mt-2 text-sm text-[var(--color-muted)]">Sign in to open the control plane.</p>
+          <h1 className="mt-8 text-3xl font-semibold tracking-tight text-[var(--color-fg)] md:mt-10 md:text-4xl">
+            {t('login.title')}
+          </h1>
+          <p className="mt-3 text-base text-[var(--color-muted)] md:text-lg">{t('login.sub')}</p>
         </div>
 
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/80 p-6 shadow-[0_24px_80px_oklch(0.05_0.02_260/0.5)] backdrop-blur-md">
+        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/85 p-8 shadow-[0_24px_80px_oklch(0.05_0.02_260/0.5)] backdrop-blur-md md:p-10">
           {googleEnabled && (
             <>
               <button
                 type="button"
                 onClick={() => void onGoogle()}
                 disabled={googleLoading || loading}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-fg)] py-2.5 text-sm font-medium text-[var(--color-bg)] transition hover:opacity-95 disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-fg)] px-4 py-3.5 text-base font-medium text-[var(--color-bg)] transition hover:opacity-95 disabled:opacity-50 md:py-4 md:text-[1.05rem]"
               >
                 <GoogleIcon />
-                {googleLoading ? 'Redirecting…' : 'Continue with Google'}
+                {googleLoading ? t('login.googleRedirect') : t('login.google')}
               </button>
-              <div className="my-6 flex items-center gap-3">
+              <div className="my-8 flex items-center gap-4 md:my-9">
                 <div className="h-px flex-1 bg-[var(--color-border)]" />
-                <span className="text-[11px] uppercase tracking-wider text-[var(--color-muted)]">
-                  or email
+                <span className="text-xs font-medium uppercase tracking-wider text-[var(--color-muted)] md:text-sm">
+                  {t('login.orEmail')}
                 </span>
                 <div className="h-px flex-1 bg-[var(--color-border)]" />
               </div>
             </>
           )}
 
-          <form onSubmit={(e) => void onSubmit(e)} className="space-y-4">
+          <form onSubmit={(e) => void onSubmit(e)} className="space-y-5 md:space-y-6">
             <div>
-              <label className="mb-1 block text-xs text-[var(--color-muted)]">Email</label>
+              <label className="mb-2 block text-sm font-medium text-[var(--color-muted)] md:text-base">
+                {t('login.email')}
+              </label>
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-sm text-[var(--color-fg)] outline-none ring-[var(--color-accent)]/30 focus:ring-2"
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3.5 text-base text-[var(--color-fg)] outline-none ring-[var(--color-accent)]/30 focus:ring-2 md:py-4 md:text-lg"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs text-[var(--color-muted)]">Password</label>
+              <label className="mb-2 block text-sm font-medium text-[var(--color-muted)] md:text-base">
+                {t('login.password')}
+              </label>
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-sm text-[var(--color-fg)] outline-none ring-[var(--color-accent)]/30 focus:ring-2"
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3.5 text-base text-[var(--color-fg)] outline-none ring-[var(--color-accent)]/30 focus:ring-2 md:py-4 md:text-lg"
               />
             </div>
-            {error && <p className="text-sm text-[var(--color-danger)]">{error}</p>}
-            <Button type="submit" disabled={loading || googleLoading} className="w-full">
-              {loading ? 'Signing in…' : 'Sign in'}
+            {error && <p className="text-base text-[var(--color-danger)]">{error}</p>}
+            <Button
+              type="submit"
+              disabled={loading || googleLoading}
+              className="h-12 w-full text-base md:h-14 md:text-lg"
+            >
+              {loading ? t('login.signingIn') : t('login.signIn')}
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-[var(--color-muted)]">
-            No account?{' '}
-            <Link href="/register" className="font-medium text-[var(--color-accent)] hover:underline">
-              Register
+          <p className="mt-8 text-center text-base text-[var(--color-muted)] md:mt-10 md:text-lg">
+            {t('login.noAccount')}{' '}
+            <Link href="/register" className="font-semibold text-[var(--color-accent)] hover:underline">
+              {t('login.register')}
             </Link>
           </p>
         </div>

@@ -13,7 +13,7 @@ npm install
 npm run dev          # http://localhost:3000
 # or:
 npm run eval:agent   # CLI demo, 8/8 acceptance criteria PASS
-npm test             # 57 tests pass (unit + integration + e2e)
+npm test             # 68 tests pass (unit + integration + e2e)
 ```
 
 ## What it does
@@ -73,7 +73,7 @@ flowchart LR
 | `npm run dev`                                 | Next.js dev server     |
 | `npm run build`                               | Production build       |
 | `npm run check`                               | `tsc --noEmit` strict  |
-| `npm test`                                    | All 57 tests           |
+| `npm test`                                    | All 68 tests           |
 | `npm run test:unit` / `:integration` / `:e2e` | Subset                 |
 | `npm run verify`                              | check + test (CI gate) |
 | `npm run eval:agent`                          | CLI demo (8/8 AC)      |

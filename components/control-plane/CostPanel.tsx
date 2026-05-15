@@ -1,4 +1,7 @@
+'use client';
+
 import { Card, CardHeader, CardTitle, CardContent } from '@/../components/ui/card';
+import { useI18n } from '@/../components/i18n/LocaleProvider';
 import type { Company } from '@/factory/domain/types';
 
 export function CostPanel({
@@ -8,14 +11,18 @@ export function CostPanel({
   company: Company;
   costByAgent: Array<{ agentId: string; name: string; role: string; costUsd: number }>;
 }) {
+  const { t } = useI18n();
   const total = costByAgent.reduce((sum, a) => sum + a.costUsd, 0);
   const max = Math.max(0.0001, ...costByAgent.map((a) => a.costUsd));
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Cost per agent</CardTitle>
+        <CardTitle>{t('cost.title')}</CardTitle>
         <span className="text-xs text-[var(--color-muted)]">
-          spent today ${company.budget.spentTodayUsd.toFixed(3)} / ${company.budget.dailyCapUsd.toFixed(2)}
+          {t('cost.spentLine', {
+            spent: company.budget.spentTodayUsd.toFixed(3),
+            daily: company.budget.dailyCapUsd.toFixed(2),
+          })}
         </span>
       </CardHeader>
       <CardContent>
@@ -35,7 +42,7 @@ export function CostPanel({
             </div>
           ))}
           <div className="flex items-center gap-2 text-xs pt-2 border-t border-[var(--color-border)]/50">
-            <span className="w-32 font-medium">TOTAL</span>
+            <span className="w-32 font-medium">{t('cost.total')}</span>
             <div className="flex-1" />
             <span className="font-mono w-16 text-right font-semibold">${total.toFixed(3)}</span>
           </div>

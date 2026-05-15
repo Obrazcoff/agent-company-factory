@@ -2,7 +2,7 @@ import { db } from '../store/db';
 import { newId } from '../domain/ids';
 import { appendAudit } from '../audit/audit';
 import type { Agent, Blueprint, Company, EscalationRule } from '../domain/types';
-import { agentAvatarSlug, buildAgentDisplayName } from './agentCodename';
+import { assignAvatarSlugsUnique, buildAgentDisplayName } from './agentCodename';
 
 const DEFAULT_ESCALATION: EscalationRule[] = [
   { trigger: 'budget_exceeded', action: 'pause_agent' },
@@ -11,15 +11,17 @@ const DEFAULT_ESCALATION: EscalationRule[] = [
 ];
 
 export function designTeam(company: Company, blueprint: Blueprint): Agent[] {
-  const agents: Agent[] = blueprint.agents.map((spec) => {
+  const avatarSeed = `${Date.now()}\x1e${newId('av')}\x1e${company.id}\x1e${blueprint.agents.map((a) => `${a.role}:${a.name}`).join('|')}`;
+  const slugs = assignAvatarSlugsUnique(blueprint.agents.length, avatarSeed);
+  const agents: Agent[] = blueprint.agents.map((spec, i) => {
     const id = newId('agt');
-    const avatarSlug = agentAvatarSlug(id);
+    const avatarSlug = slugs[i]!;
     const agent: Agent = {
       id,
       companyId: company.id,
       role: spec.role,
       name: spec.name,
-      displayName: buildAgentDisplayName(spec.role, id),
+      displayName: buildAgentDisplayName(spec.role, id, avatarSlug),
       avatarSlug,
       systemPrompt: spec.systemPrompt,
       permissions: spec.permissions,

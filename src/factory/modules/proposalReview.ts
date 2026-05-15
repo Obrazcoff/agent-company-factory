@@ -8,12 +8,33 @@ import { db } from '../store/db';
 import { newId, nowIso } from '../domain/ids';
 import { appendAudit } from '../audit/audit';
 import { createLlmClient, type LlmClient } from '@/llm/provider';
+import { buildRebuildUserPromptParts } from '@/llm/locale-prompts';
+import type { Locale } from '@/i18n/constants';
+import { DEFAULT_LOCALE } from '@/i18n/constants';
 import { BlueprintSchema } from '../domain/schemas';
 import { FACTORY_DEFAULTS } from '../config';
 import { intakeAndCreateCompany } from './goalIntake';
 import type { Blueprint, Company, CompanyProposal, ProposedAgent } from '../domain/types';
 import type { IntakeResult } from './goalIntake';
-import { agentAvatarSlug, buildAgentDisplayName } from './agentCodename';
+import { assignAvatarSlugsUnique, buildAgentDisplayName } from './agentCodename';
+
+function buildProposedAgents(blueprint: Blueprint, avatarSeed: string): ProposedAgent[] {
+  const slugs = assignAvatarSlugsUnique(blueprint.agents.length, avatarSeed);
+  return blueprint.agents.map((spec, i) => {
+    const id = newId('pa');
+    const avatarSlug = slugs[i]!;
+    return {
+      id,
+      role: spec.role,
+      name: spec.name,
+      displayName: buildAgentDisplayName(spec.role, id, avatarSlug),
+      avatarSlug,
+      systemPrompt: spec.systemPrompt,
+      permissions: spec.permissions,
+      included: true,
+    };
+  });
+}
 
 export type DraftProposalRequest = {
   missionPrompt: string;
@@ -33,11 +54,12 @@ export type RebuildRequest = {
 /** Create a blueprint + proposed agents WITHOUT persisting agents/tasks */
 export async function draftProposal(
   req: DraftProposalRequest,
-  deps?: { llm?: LlmClient },
+  deps?: { llm?: LlmClient; locale?: Locale },
 ): Promise<DraftProposalResult> {
   const dailyBudget = req.dailyBudgetUsd ?? FACTORY_DEFAULTS.dailyBudgetUsd;
   const llm = deps?.llm ?? createLlmClient();
-  const blueprintCall = await llm.generateBlueprint(req.missionPrompt, dailyBudget);
+  const locale = deps?.locale ?? DEFAULT_LOCALE;
+  const blueprintCall = await llm.generateBlueprint(req.missionPrompt, dailyBudget, locale);
   const blueprint = BlueprintSchema.parse(blueprintCall.data);
 
   // Create company in proposal status (no agents or tasks created yet)
@@ -55,23 +77,12 @@ export async function draftProposal(
     },
     status: 'proposal',
     createdAt: nowIso(),
+    contentLocale: locale,
   };
   db().companies.create(tempCompany);
 
-  // Map blueprint agents to ProposedAgent without persisting to db().agents
-  const proposedAgents: ProposedAgent[] = blueprint.agents.map((spec) => {
-    const id = newId('pa');
-    return {
-      id,
-      role: spec.role,
-      name: spec.name,
-      displayName: buildAgentDisplayName(spec.role, id),
-      avatarSlug: agentAvatarSlug(id),
-      systemPrompt: spec.systemPrompt,
-      permissions: spec.permissions,
-      included: true,
-    };
-  });
+  const avatarSeed = `${nowIso()}\x1e${newId('av')}\x1e${tempCompany.id}\x1e${blueprint.agents.map((a) => `${a.role}:${a.name}`).join('|')}`;
+  const proposedAgents = buildProposedAgents(blueprint, avatarSeed);
 
   const proposal: CompanyProposal = {
     id: newId('prop'),
@@ -185,7 +196,7 @@ export async function acceptProposal(proposalId: string): Promise<IntakeResult> 
 export async function rebuildProposal(
   proposalId: string,
   req: RebuildRequest,
-  deps?: { llm?: LlmClient },
+  deps?: { llm?: LlmClient; locale?: Locale },
 ): Promise<DraftProposalResult> {
   const proposal = db().proposals.get(proposalId);
   if (!proposal) throw new Error(`Proposal ${proposalId} not found`);
@@ -202,16 +213,8 @@ export async function rebuildProposal(
     .filter((a) => !a.included)
     .map((a) => a.role)
     .filter((r, i, arr) => arr.indexOf(r) === i);
-  const excludedLine =
-    excludedRoles.length > 0
-      ? `\n\nThe client removed these roles from the previous proposal — omit them unless the mission cannot be fulfilled without one; then justify briefly: ${excludedRoles.join(', ')}.`
-      : '';
-
-  const feedbackPart = req.feedback?.trim()
-    ? `\n\nRevision feedback from the client:\n${req.feedback.trim()}`
-    : '';
-
-  const prompt = `${proposal.missionPrompt}${feedbackPart}${excludedLine}`;
+  const locale = deps?.locale ?? DEFAULT_LOCALE;
+  const prompt = buildRebuildUserPromptParts(proposal.missionPrompt, req.feedback, excludedRoles, locale);
 
   // Create a new proposal on the same company
   const newDraft = await draftProposalForCompany(company, prompt, proposal.blueprint.dailyCapUsd, deps);
@@ -236,26 +239,15 @@ async function draftProposalForCompany(
   company: Company,
   prompt: string,
   dailyBudget: number,
-  deps?: { llm?: LlmClient },
+  deps?: { llm?: LlmClient; locale?: Locale },
 ): Promise<DraftProposalResult> {
   const llm = deps?.llm ?? createLlmClient();
-  const blueprintCall = await llm.generateBlueprint(prompt, dailyBudget);
+  const locale = deps?.locale ?? DEFAULT_LOCALE;
+  const blueprintCall = await llm.generateBlueprint(prompt, dailyBudget, locale);
   const blueprint = BlueprintSchema.parse(blueprintCall.data);
 
-  // Build proposed agents from blueprint WITHOUT persisting to db().agents
-  const proposedAgents: ProposedAgent[] = blueprint.agents.map((spec) => {
-    const id = newId('pa');
-    return {
-      id,
-      role: spec.role,
-      name: spec.name,
-      displayName: buildAgentDisplayName(spec.role, id),
-      avatarSlug: agentAvatarSlug(id),
-      systemPrompt: spec.systemPrompt,
-      permissions: spec.permissions,
-      included: true,
-    };
-  });
+  const avatarSeed = `${nowIso()}\x1e${newId('av')}\x1e${company.id}\x1e${blueprint.agents.map((a) => `${a.role}:${a.name}`).join('|')}`;
+  const proposedAgents = buildProposedAgents(blueprint, avatarSeed);
 
   const proposal: CompanyProposal = {
     id: newId('prop'),

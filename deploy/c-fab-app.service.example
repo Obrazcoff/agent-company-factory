@@ -1,0 +1,24 @@
+# Пример unit для сервера nova-02. Скопировать в /etc/systemd/system/c-fab-app.service
+# и подставить свой путь к node из nvm: `nvm which current` → dirname → node.
+#
+#   sudo cp deploy/c-fab-app.service.example /etc/systemd/system/c-fab-app.service
+#   sudo systemctl daemon-reload && sudo systemctl enable --now c-fab-app
+
+[Unit]
+Description=Agent Company Factory (Next.js)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/c-fab-app
+Environment=NODE_ENV=production
+Environment=PORT=3010
+# Явный node из nvm (версию подставь с сервера: ls /root/.nvm/versions/node/)
+ExecStart=/root/.nvm/versions/node/v20.19.5/bin/npm run start
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

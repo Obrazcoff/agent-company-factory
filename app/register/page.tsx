@@ -2,8 +2,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useI18n } from '@/../components/i18n/LocaleProvider';
+import { LanguageSwitcher } from '@/../components/i18n/LanguageSwitcher';
 
 export default function RegisterPage() {
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -22,7 +25,7 @@ export default function RegisterPage() {
       });
       const data = (await res.json()) as { error?: string; projectId?: string };
       if (!res.ok) {
-        setError(data.error ?? 'Registration failed');
+        setError(data.error ?? t('register.errFailed'));
         return;
       }
       if (data.projectId) {
@@ -39,11 +42,14 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="mx-auto max-w-md p-8">
-      <h1 className="text-xl font-semibold mb-6">Create account</h1>
+    <main className="relative mx-auto max-w-md p-8">
+      <div className="absolute right-8 top-8">
+        <LanguageSwitcher />
+      </div>
+      <h1 className="text-xl font-semibold mb-6">{t('register.title')}</h1>
       <form onSubmit={onSubmit} className="space-y-4">
         <div>
-          <label className="block text-xs text-gray-600 mb-1">Name (optional)</label>
+          <label className="block text-xs text-gray-600 mb-1">{t('register.nameOptional')}</label>
           <input
             type="text"
             value={name}
@@ -52,7 +58,7 @@ export default function RegisterPage() {
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-600 mb-1">Email</label>
+          <label className="block text-xs text-gray-600 mb-1">{t('register.email')}</label>
           <input
             type="email"
             required
@@ -62,7 +68,7 @@ export default function RegisterPage() {
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-600 mb-1">Password (min 8)</label>
+          <label className="block text-xs text-gray-600 mb-1">{t('register.password')}</label>
           <input
             type="password"
             required
@@ -78,13 +84,13 @@ export default function RegisterPage() {
           disabled={loading}
           className="w-full rounded bg-gray-900 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
-          {loading ? 'Creating…' : 'Register'}
+          {loading ? t('register.creating') : t('register.submit')}
         </button>
       </form>
       <p className="mt-4 text-sm text-gray-600">
-        Already have an account?{' '}
+        {t('register.haveAccount')}{' '}
         <Link href="/login" className="underline">
-          Sign in
+          {t('register.signIn')}
         </Link>
       </p>
     </main>

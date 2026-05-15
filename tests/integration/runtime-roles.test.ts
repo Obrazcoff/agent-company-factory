@@ -48,6 +48,27 @@ describe('runtime / role handlers', () => {
     }
   });
 
+  it('Outreach.draft_outreach uses Russian templates when company.contentLocale is ru', async () => {
+    const ctx = await createDemoCompany({ locale: 'ru' });
+    expect(db().companies.require(ctx.company.id).contentLocale).toBe('ru');
+    const outreach = getAgentByRole(ctx.company.id, 'Outreach');
+    const r = enqueueTask({
+      companyId: ctx.company.id,
+      agentId: outreach.id,
+      kind: 'draft_outreach',
+      input: { variant: 'A' },
+    });
+    if (!r.ok) throw new Error(r.reason);
+    const out = await executeRun(r.task);
+    expect(out.kind).toBe('done');
+    if (out.kind !== 'done') return;
+    const draftCall = out.run.toolCalls.find((c) => c.connectorId === 'gmail.draft');
+    expect(draftCall).toBeDefined();
+    const input = draftCall!.input as { subject: string; body: string };
+    expect(input.subject).toContain('Atlas Concierge');
+    expect(input.body).toMatch(/Здравствуйте|команда/);
+  });
+
   it('Outreach.send_outreach pauses for approval (gmail.send requires approval)', async () => {
     const ctx = await createDemoCompany();
     const outreach = getAgentByRole(ctx.company.id, 'Outreach');

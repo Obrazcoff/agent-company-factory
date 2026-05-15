@@ -3,14 +3,19 @@
 import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useI18n } from '@/../components/i18n/LocaleProvider';
+import { LanguageSwitcher } from '@/../components/i18n/LanguageSwitcher';
 
-const PROVIDERS = [
-  { id: 'mock', label: 'Mock (deterministic, no API cost)' },
-  { id: 'openai', label: 'OpenAI-compatible (URL + key + model)' },
-  { id: 'neurohub', label: 'Neurohub / Qwen (OpenAI-compatible endpoint)' },
-] as const;
+const PROVIDER_IDS = ['mock', 'openai', 'neurohub'] as const;
+
+function providerLabel(id: (typeof PROVIDER_IDS)[number], t: (k: string) => string): string {
+  if (id === 'mock') return t('settingsLlm.provMock');
+  if (id === 'openai') return t('settingsLlm.provOpenai');
+  return t('settingsLlm.provNeurohub');
+}
 
 export default function LlmSettingsPage() {
+  const { t } = useI18n();
   const { data: session, status } = useSession();
   const [projectId, setProjectId] = useState<string | null>(null);
   const [provider, setProvider] = useState<string>('mock');
@@ -42,7 +47,7 @@ export default function LlmSettingsPage() {
     setMsg(null);
     setErr(null);
     if (!projectId) {
-      setErr('No project — register and sign in with DATABASE_URL configured.');
+      setErr(t('settingsLlm.errNoProject'));
       return;
     }
     setSaving(true);
@@ -62,79 +67,82 @@ export default function LlmSettingsPage() {
         setErr(data.error ?? `HTTP ${res.status}`);
         return;
       }
-      setMsg('Saved. New LLM calls use this profile (running tasks keep the old model until done).');
+      setMsg(t('settingsLlm.msgSaved'));
       setApiKey('');
     } finally {
       setSaving(false);
     }
   }
 
-  if (status === 'loading') return <main className="p-8">Loading…</main>;
+  if (status === 'loading') return <main className="p-8">{t('settingsLlm.loading')}</main>;
   if (!session?.user) {
     return (
       <main className="p-8">
-        <p className="mb-4">Sign in to edit LLM settings.</p>
+        <p className="mb-4">{t('settingsLlm.needSignIn')}</p>
         <Link href="/login" className="underline">
-          Login
+          {t('settingsLlm.login')}
         </Link>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto max-w-lg p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">LLM profile (per project)</h1>
-        <Link href="/" className="text-sm underline">
-          Control plane
+    <main className="relative mx-auto max-w-lg space-y-6 p-8">
+      <div className="absolute right-8 top-8">
+        <LanguageSwitcher />
+      </div>
+      <div className="flex items-center justify-between gap-4 pr-24">
+        <h1 className="text-xl font-semibold">{t('settingsLlm.title')}</h1>
+        <Link href="/" className="shrink-0 text-sm underline">
+          {t('settingsLlm.back')}
         </Link>
       </div>
-      <p className="text-sm text-gray-600">
-        For OpenAI use base URL <code className="text-xs">https://api.openai.com/v1</code>. For Neurohub use
-        the base path your host documents (must end with <code className="text-xs">/v1</code> for chat
-        completions).
-      </p>
+      <p className="text-sm text-gray-600">{t('settingsLlm.intro')}</p>
       <form onSubmit={save} className="space-y-4">
         <div>
-          <label className="block text-xs text-gray-600 mb-1">Provider</label>
+          <label className="mb-1 block text-xs text-gray-600">{t('settingsLlm.provider')}</label>
           <select
             value={provider}
             onChange={(e) => setProvider(e.target.value)}
             className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
           >
-            {PROVIDERS.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.label}
+            {PROVIDER_IDS.map((id) => (
+              <option key={id} value={id}>
+                {providerLabel(id, t)}
               </option>
             ))}
           </select>
         </div>
         <div>
-          <label className="block text-xs text-gray-600 mb-1">Base URL</label>
+          <label className="mb-1 block text-xs text-gray-600">{t('settingsLlm.baseUrl')}</label>
           <input
             value={baseUrl}
             onChange={(e) => setBaseUrl(e.target.value)}
-            placeholder="https://api.openai.com/v1"
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm font-mono"
+            placeholder={
+              provider === 'neurohub'
+                ? t('settingsLlm.baseUrlPlaceholderNeurohub')
+                : t('settingsLlm.baseUrlPlaceholderOpenai')
+            }
+            className="w-full rounded border border-gray-300 px-3 py-2 font-mono text-sm"
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-600 mb-1">API key (stored as plain text in MVP DB)</label>
+          <label className="mb-1 block text-xs text-gray-600">{t('settingsLlm.apiKey')}</label>
           <input
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            placeholder="Leave blank to keep existing"
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm font-mono"
+            placeholder={t('settingsLlm.apiKeyPh')}
+            className="w-full rounded border border-gray-300 px-3 py-2 font-mono text-sm"
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-600 mb-1">Model</label>
+          <label className="mb-1 block text-xs text-gray-600">{t('settingsLlm.model')}</label>
           <input
             value={model}
             onChange={(e) => setModel(e.target.value)}
-            placeholder="gpt-4o-mini or qwen-…"
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm font-mono"
+            placeholder={t('settingsLlm.modelPh')}
+            className="w-full rounded border border-gray-300 px-3 py-2 font-mono text-sm"
           />
         </div>
         {err && <p className="text-sm text-red-600">{err}</p>}
@@ -144,7 +152,7 @@ export default function LlmSettingsPage() {
           disabled={saving}
           className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? t('settingsLlm.saving') : t('settingsLlm.save')}
         </button>
       </form>
     </main>
