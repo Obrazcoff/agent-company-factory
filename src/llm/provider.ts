@@ -169,16 +169,34 @@ class OpenAiCompatibleClient implements LlmClient {
   }
 }
 
-function defaultEnvRuntime(): LlmRuntimeConfig {
-  const provider = (process.env.LLM_PROVIDER || 'mock') as LlmRuntimeConfig['provider'];
-  const resolved = provider === 'openai' || provider === 'neurohub' ? provider : 'mock';
-  return {
-    provider: resolved,
-    baseUrl: process.env.NEUROHUB_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
-    apiKey: process.env.OPENAI_API_KEY || process.env.NEUROHUB_API_KEY,
-    model: process.env.OPENAI_MODEL || process.env.NEUROHUB_MODEL || 'gpt-4o-mini',
-    blueprintJsonMode: resolved !== 'neurohub',
-  };
+export function defaultEnvRuntime(): LlmRuntimeConfig {
+  const raw = (process.env.LLM_PROVIDER || 'mock').toLowerCase();
+  if (raw === 'neurohub') {
+    return {
+      provider: 'neurohub',
+      baseUrl:
+        process.env.NEUROHUB_BASE_URL ||
+        process.env.OPENAI_BASE_URL ||
+        'https://ai.nova01.click/neurohub/v1',
+      /** Prefer NEUROHUB_* so OPENAI_API_KEY in the same .env does not shadow (Neurohub → 401). */
+      apiKey: process.env.NEUROHUB_API_KEY || process.env.OPENAI_API_KEY,
+      model: process.env.NEUROHUB_MODEL || process.env.OPENAI_MODEL || 'Qwen/Qwen3.5-27B',
+      blueprintJsonMode: false,
+    };
+  }
+  if (raw === 'openai') {
+    return {
+      provider: 'openai',
+      baseUrl:
+        process.env.OPENAI_BASE_URL ||
+        process.env.NEUROHUB_BASE_URL ||
+        'https://api.openai.com/v1',
+      apiKey: process.env.OPENAI_API_KEY || process.env.NEUROHUB_API_KEY,
+      model: process.env.OPENAI_MODEL || process.env.NEUROHUB_MODEL || 'gpt-4o-mini',
+      blueprintJsonMode: true,
+    };
+  }
+  return { provider: 'mock' };
 }
 
 export function createLlmClient(runtime?: LlmRuntimeConfig | null): LlmClient {
