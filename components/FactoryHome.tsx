@@ -37,16 +37,17 @@ const SESSION_SERVER_BOOT_ID = 'agent-factory:server-boot-id';
 const MAX_IDLE_TICKS = 50;
 
 export function FactoryHome() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const defaultMission = useMemo(() => t('factory.defaultMissionPrompt'), [t]);
-  const prevDefaultMission = useRef(defaultMission);
   const [prompt, setPrompt] = useState(defaultMission);
+  const prevLocaleRef = useRef(locale);
+
   useEffect(() => {
-    if (prevDefaultMission.current !== defaultMission) {
-      setPrompt((p) => (p === prevDefaultMission.current ? defaultMission : p));
-      prevDefaultMission.current = defaultMission;
+    if (prevLocaleRef.current !== locale) {
+      prevLocaleRef.current = locale;
+      setPrompt(defaultMission);
     }
-  }, [defaultMission]);
+  }, [locale, defaultMission]);
   const { status: authStatus } = useSession();
   const [budget, setBudget] = useState(50);
   const [companyId, setCompanyId] = useState<string | null>(null);
