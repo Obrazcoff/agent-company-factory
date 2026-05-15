@@ -192,8 +192,16 @@ export function createLlmClient(runtime?: LlmRuntimeConfig | null): LlmClient {
       'LLM apiKey missing for non-mock provider (set profile or OPENAI_API_KEY / NEUROHUB_API_KEY)',
     );
   }
-  const model = cfg.model || 'gpt-4o-mini';
-  const base = cfg.baseUrl || 'https://api.openai.com/v1';
+  const model =
+    cfg.model?.trim() ||
+    (cfg.provider === 'neurohub'
+      ? process.env.NEUROHUB_MODEL || 'Qwen/Qwen3.5-27B'
+      : 'gpt-4o-mini');
+  const base =
+    cfg.baseUrl?.trim() ||
+    (cfg.provider === 'neurohub'
+      ? process.env.NEUROHUB_BASE_URL || 'https://ai.nova01.click/neurohub/v1'
+      : 'https://api.openai.com/v1');
   const url = chatCompletionsUrl(base);
   const blueprintJsonMode = cfg.blueprintJsonMode ?? cfg.provider !== 'neurohub';
   return new OpenAiCompatibleClient(apiKey, model, url, blueprintJsonMode);

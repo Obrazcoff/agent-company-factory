@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useI18n } from '@/../components/i18n/LocaleProvider';
 import { LanguageSwitcher } from '@/../components/i18n/LanguageSwitcher';
+import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/../components/ui/button';
 import { cn } from '@/../lib/cn';
 
@@ -144,16 +145,42 @@ export default function LlmSettingsPage() {
 
   if (status === 'loading') {
     return (
-      <main className="flex min-h-screen items-center justify-center px-6 py-16 text-[var(--color-muted)]">
-        {t('settingsLlm.loading')}
+      <main className="relative min-h-screen">
+        <header className="sticky top-0 z-30 border-b border-[var(--color-border)]/80 bg-[var(--color-bg)]/90 backdrop-blur-md">
+          <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3 sm:px-8">
+            <Link
+              href="/"
+              className="group inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-sm font-semibold text-[var(--color-fg)] shadow-sm transition hover:border-[var(--color-accent)]/45 sm:px-4"
+            >
+              <ArrowLeft className="h-4 w-4 shrink-0 text-[var(--color-accent)]" aria-hidden />
+              {t('settingsLlm.backToFactory')}
+            </Link>
+            <LanguageSwitcher />
+          </div>
+        </header>
+        <div className="flex min-h-[50vh] items-center justify-center px-6 py-16 text-[var(--color-muted)]">
+          {t('settingsLlm.loading')}
+        </div>
       </main>
     );
   }
 
   if (!session?.user) {
     return (
-      <main className="relative min-h-screen overflow-hidden px-6 py-16">
-        <div className="pointer-events-none absolute inset-0 opacity-[0.06]" aria-hidden>
+      <main className="relative min-h-screen overflow-hidden">
+        <header className="sticky top-0 z-30 border-b border-[var(--color-border)]/80 bg-[var(--color-bg)]/90 backdrop-blur-md">
+          <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3 sm:px-8">
+            <Link
+              href="/"
+              className="group inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-sm font-semibold text-[var(--color-fg)] shadow-sm transition hover:border-[var(--color-accent)]/45 sm:px-4"
+            >
+              <ArrowLeft className="h-4 w-4 shrink-0 text-[var(--color-accent)]" aria-hidden />
+              {t('settingsLlm.backToFactory')}
+            </Link>
+            <LanguageSwitcher />
+          </div>
+        </header>
+        <div className="pointer-events-none absolute inset-0 top-14 opacity-[0.06]" aria-hidden>
           <div
             className="absolute inset-0"
             style={{
@@ -162,7 +189,7 @@ export default function LlmSettingsPage() {
             }}
           />
         </div>
-        <div className="relative z-10 mx-auto max-w-md text-center">
+        <div className="relative z-10 mx-auto max-w-md px-6 py-16 text-center">
           <p className="mb-6 text-[var(--color-muted)]">{t('settingsLlm.needSignIn')}</p>
           <Link href="/login" className="font-medium text-[var(--color-accent)] hover:underline">
             {t('settingsLlm.login')}
@@ -173,30 +200,38 @@ export default function LlmSettingsPage() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden px-5 pb-20 pt-10 sm:px-8 sm:pt-14">
+    <main className="relative min-h-screen overflow-hidden pb-24">
+      <header className="sticky top-0 z-30 border-b border-[var(--color-border)]/80 bg-[var(--color-bg)]/90 backdrop-blur-md">
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3 sm:px-8">
+          <Link
+            href="/"
+            className="group inline-flex min-h-11 max-w-[min(100%,20rem)] items-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-left text-sm font-semibold text-[var(--color-fg)] shadow-sm ring-[var(--color-accent)]/20 transition hover:border-[var(--color-accent)]/45 hover:ring-2 sm:px-4"
+          >
+            <ArrowLeft
+              className="h-4 w-4 shrink-0 text-[var(--color-accent)] transition group-hover:-translate-x-0.5"
+              aria-hidden
+            />
+            <span className="leading-snug">{t('settingsLlm.backToFactory')}</span>
+          </Link>
+          <LanguageSwitcher />
+        </div>
+      </header>
+
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.35]"
+        className="pointer-events-none absolute inset-0 top-14 opacity-[0.35]"
         aria-hidden
         style={{
           background:
             'radial-gradient(ellipse 80% 55% at 50% -10%, oklch(0.55 0.14 220 / 0.35), transparent 55%), radial-gradient(ellipse 60% 40% at 100% 0%, oklch(0.4 0.08 260 / 0.2), transparent)',
         }}
       />
-      <div className="pointer-events-none absolute right-5 top-5 z-20 sm:right-8 sm:top-8">
-        <LanguageSwitcher />
-      </div>
 
-      <div className="relative z-10 mx-auto w-full max-w-xl">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4 pr-0 sm:pr-28">
+      <div className="relative z-10 mx-auto w-full max-w-xl px-5 pt-8 sm:px-8 sm:pt-10">
+        <div className="mb-6">
           <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-fg)] sm:text-3xl">
             {t('settingsLlm.title')}
           </h1>
-          <Link
-            href="/"
-            className="shrink-0 text-sm font-medium text-[var(--color-muted)] underline-offset-4 hover:text-[var(--color-fg)] hover:underline"
-          >
-            {t('settingsLlm.back')}
-          </Link>
+          <p className="mt-1 text-sm text-[var(--color-muted)]">{t('settingsLlm.pageHint')}</p>
         </div>
 
         <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/80 p-6 shadow-[0_24px_80px_oklch(0.05_0.02_260/0.45)] backdrop-blur-md sm:p-8">

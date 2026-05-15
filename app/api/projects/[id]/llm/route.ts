@@ -53,6 +53,23 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   }
 }
 
+const NEUROHUB_DEFAULT_BASE_URL =
+  process.env.NEUROHUB_BASE_URL || 'https://ai.nova01.click/neurohub/v1';
+const NEUROHUB_DEFAULT_MODEL = process.env.NEUROHUB_MODEL || 'Qwen/Qwen3.5-27B';
+
+function normalizeNeurohubDefaults(
+  parsed: z.infer<typeof PatchSchema>,
+): z.infer<typeof PatchSchema> {
+  if (parsed.provider !== 'neurohub') return parsed;
+  const baseTrim = parsed.baseUrl?.trim() ?? '';
+  const modelTrim = parsed.model?.trim() ?? '';
+  return {
+    ...parsed,
+    baseUrl: baseTrim ? baseTrim : NEUROHUB_DEFAULT_BASE_URL,
+    model: modelTrim ? modelTrim : NEUROHUB_DEFAULT_MODEL,
+  };
+}
+
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const prisma = getPrisma();
@@ -68,7 +85,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (!ok) return notFound('project_not_found');
 
     const body = await request.json();
-    const parsed = PatchSchema.parse(body);
+    const parsed = normalizeNeurohubDefaults(PatchSchema.parse(body));
 
     const profile = await prisma.llmProfile.upsert({
       where: { projectId },
