@@ -17,6 +17,7 @@ function dbProfileToRuntime(p: {
     baseUrl: p.baseUrl ?? undefined,
     apiKey: p.apiKey ?? undefined,
     model: p.model ?? undefined,
+    blueprintJsonMode: provider !== 'neurohub',
   };
 }
 

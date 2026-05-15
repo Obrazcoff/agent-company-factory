@@ -31,6 +31,11 @@ export type LlmRuntimeConfig = {
   baseUrl?: string;
   apiKey?: string;
   model?: string;
+  /**
+   * Many OpenAI-compatible hosts (e.g. Neurohub) reject `response_format: json_object`.
+   * When false, blueprint request omits response_format and relies on prompt + JSON parse.
+   */
+  blueprintJsonMode?: boolean;
 };
 
 const LLM_TEXT_COST_USD = 0.01;
@@ -83,6 +88,7 @@ class OpenAiCompatibleClient implements LlmClient {
     private readonly apiKey: string,
     private readonly model: string,
     private readonly completionsUrl: string,
+    private readonly blueprintJsonMode: boolean,
   ) {}
 
   async generate(messages: LlmMessage[]): Promise<string> {
@@ -113,21 +119,25 @@ class OpenAiCompatibleClient implements LlmClient {
   ): Promise<LlmCallResult<Blueprint>> {
     const systemPrompt = blueprintSystemPrompt(dailyBudgetUsd, locale);
 
+    const payload: Record<string, unknown> = {
+      model: this.model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: missionPrompt },
+      ],
+      temperature: 0.2,
+    };
+    if (this.blueprintJsonMode) {
+      payload.response_format = { type: 'json_object' };
+    }
+
     const response = await fetch(this.completionsUrl, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: this.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: missionPrompt },
-        ],
-        temperature: 0.2,
-        response_format: { type: 'json_object' },
-      }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -152,11 +162,13 @@ class OpenAiCompatibleClient implements LlmClient {
 
 function defaultEnvRuntime(): LlmRuntimeConfig {
   const provider = (process.env.LLM_PROVIDER || 'mock') as LlmRuntimeConfig['provider'];
+  const resolved = provider === 'openai' || provider === 'neurohub' ? provider : 'mock';
   return {
-    provider: provider === 'openai' || provider === 'neurohub' ? provider : 'mock',
+    provider: resolved,
     baseUrl: process.env.NEUROHUB_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
     apiKey: process.env.OPENAI_API_KEY || process.env.NEUROHUB_API_KEY,
     model: process.env.OPENAI_MODEL || process.env.NEUROHUB_MODEL || 'gpt-4o-mini',
+    blueprintJsonMode: resolved !== 'neurohub',
   };
 }
 
@@ -173,5 +185,6 @@ export function createLlmClient(runtime?: LlmRuntimeConfig | null): LlmClient {
   const model = cfg.model || 'gpt-4o-mini';
   const base = cfg.baseUrl || 'https://api.openai.com/v1';
   const url = chatCompletionsUrl(base);
-  return new OpenAiCompatibleClient(apiKey, model, url);
+  const blueprintJsonMode = cfg.blueprintJsonMode ?? cfg.provider !== 'neurohub';
+  return new OpenAiCompatibleClient(apiKey, model, url, blueprintJsonMode);
 }

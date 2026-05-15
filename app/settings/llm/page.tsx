@@ -64,8 +64,10 @@ export default function LlmSettingsPage() {
   useEffect(() => {
     if (!projectId) return;
     let cancelled = false;
-    setProfileLoading(true);
     (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setProfileLoading(true);
       try {
         const r = await fetch(`/api/projects/${projectId}/llm`);
         const j = (await r.json()) as { profile: PublicProfile | null };
