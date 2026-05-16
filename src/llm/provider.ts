@@ -116,7 +116,10 @@ let llmUndiciAgent: Agent | undefined;
 function getLlmUndiciAgent(): Agent {
   if (!llmUndiciAgent) {
     const connect = Math.min(300_000, Math.max(5_000, Number(process.env.LLM_CONNECT_TIMEOUT_MS || 60_000)));
-    const headers = Math.min(600_000, Math.max(10_000, Number(process.env.LLM_HEADERS_TIMEOUT_MS || 180_000)));
+    const headers = Math.min(
+      600_000,
+      Math.max(10_000, Number(process.env.LLM_HEADERS_TIMEOUT_MS || 180_000)),
+    );
     const body = Math.min(600_000, Math.max(10_000, Number(process.env.LLM_BODY_TIMEOUT_MS || 180_000)));
     llmUndiciAgent = new Agent({
       connectTimeout: connect,
@@ -161,8 +164,7 @@ class OpenAiCompatibleClient implements LlmClient {
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      const cause =
-        err instanceof Error && err.cause !== undefined ? ` cause=${String(err.cause)}` : '';
+      const cause = err instanceof Error && err.cause !== undefined ? ` cause=${String(err.cause)}` : '';
       throw new Error(
         `LLM fetch failed for ${this.completionsUrl}: ${msg}${cause}. If this mentions ConnectTimeout, the server never completed TCP/TLS to the LLM host (not “slow generation”). Check DNS, firewall, IPv4/IPv6, and routing from this machine.`,
       );
@@ -267,9 +269,7 @@ export function defaultEnvRuntime(): LlmRuntimeConfig {
     return {
       provider: 'neurohub',
       baseUrl:
-        process.env.NEUROHUB_BASE_URL ||
-        process.env.OPENAI_BASE_URL ||
-        'https://ai.nova01.click/neurohub/v1',
+        process.env.NEUROHUB_BASE_URL || process.env.OPENAI_BASE_URL || 'https://ai.nova01.click/neurohub/v1',
       /** Prefer NEUROHUB_* so OPENAI_API_KEY in the same .env does not shadow (Neurohub → 401). */
       apiKey: process.env.NEUROHUB_API_KEY || process.env.OPENAI_API_KEY,
       model: process.env.NEUROHUB_MODEL || process.env.OPENAI_MODEL || 'Qwen/Qwen3.5-27B',
@@ -279,10 +279,7 @@ export function defaultEnvRuntime(): LlmRuntimeConfig {
   if (raw === 'openai') {
     return {
       provider: 'openai',
-      baseUrl:
-        process.env.OPENAI_BASE_URL ||
-        process.env.NEUROHUB_BASE_URL ||
-        'https://api.openai.com/v1',
+      baseUrl: process.env.OPENAI_BASE_URL || process.env.NEUROHUB_BASE_URL || 'https://api.openai.com/v1',
       apiKey: process.env.OPENAI_API_KEY || process.env.NEUROHUB_API_KEY,
       model: process.env.OPENAI_MODEL || process.env.NEUROHUB_MODEL || 'gpt-4o-mini',
       blueprintJsonMode: true,
@@ -304,9 +301,7 @@ export function createLlmClient(runtime?: LlmRuntimeConfig | null): LlmClient {
   }
   const model =
     cfg.model?.trim() ||
-    (cfg.provider === 'neurohub'
-      ? process.env.NEUROHUB_MODEL || 'Qwen/Qwen3.5-27B'
-      : 'gpt-4o-mini');
+    (cfg.provider === 'neurohub' ? process.env.NEUROHUB_MODEL || 'Qwen/Qwen3.5-27B' : 'gpt-4o-mini');
   const base =
     cfg.baseUrl?.trim() ||
     (cfg.provider === 'neurohub'

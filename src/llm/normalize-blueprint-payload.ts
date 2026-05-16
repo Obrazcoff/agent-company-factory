@@ -121,14 +121,7 @@ function coerceStringMission(v: unknown): string | undefined {
   if (typeof v === 'string') return v.trim() || undefined;
   if (typeof v === 'number' || typeof v === 'boolean') return String(v);
   if (!isPlainObject(v)) return undefined;
-  const nested =
-    v.mission ??
-    v.text ??
-    v.summary ??
-    v.description ??
-    v.content ??
-    v.overview ??
-    v.goal;
+  const nested = v.mission ?? v.text ?? v.summary ?? v.description ?? v.content ?? v.overview ?? v.goal;
   if (typeof nested === 'string') return nested.trim() || undefined;
   return undefined;
 }
@@ -157,7 +150,10 @@ function coerceApprovals(v: unknown): string[] | undefined {
     } catch {
       /* fall through */
     }
-    return t.split(/[,;|]/).map((s) => s.trim()).filter(Boolean);
+    return t
+      .split(/[,;|]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
   }
   return undefined;
 }

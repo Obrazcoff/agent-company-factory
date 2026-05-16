@@ -25,8 +25,7 @@ function formatApiFailure(status: number, body: string): string {
       issues?: Array<{ path?: unknown; message?: string }>;
     };
     if (typeof j.error === 'string') {
-      let detail =
-        typeof j.message === 'string' && j.message.trim() ? ` — ${j.message.trim()}` : '';
+      let detail = typeof j.message === 'string' && j.message.trim() ? ` — ${j.message.trim()}` : '';
       if (j.error === 'validation_failed' && Array.isArray(j.issues) && j.issues.length > 0) {
         const bits = j.issues
           .slice(0, 5)

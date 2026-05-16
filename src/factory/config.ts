@@ -5,7 +5,8 @@ export const ORCH_LIMITS = {
   MAX_TASKS_PER_TICK_PER_COMPANY: 20,
   MAX_LLM_CALLS_PER_RUN: 5,
   MAX_TOOL_CALLS_PER_RUN: 20,
-  RUN_TIMEOUT_MS: 30_000,
+  /** LLM-heavy tasks (market + social copy) may exceed 30s on remote gateways. */
+  RUN_TIMEOUT_MS: 120_000,
   TICK_DEADLINE_MS: 5_000,
   STALE_RUN_MS: 60_000,
   LEASE_MS: 30_000,

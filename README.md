@@ -85,22 +85,22 @@ flowchart LR
 cp .env.example .env.local   # mock LLM by default; set neurohub/openai for real blueprint
 ```
 
-| Var                                     | Default | Note                                      |
-| --------------------------------------- | ------- | ----------------------------------------- |
-| `LLM_PROVIDER`                          | `mock`  | `openai` or `neurohub` for real blueprint |
-| `OPENAI_API_KEY` / base URL             | —       | for `openai`                              |
-| `NEUROHUB_API_KEY` / `NEUROHUB_BASE_URL`| —       | for `neurohub` (OpenAI-compatible)        |
-| `FACTORY_SEED`                          | `42`    | deterministic ids/mock                  |
+| Var                                      | Default | Note                                      |
+| ---------------------------------------- | ------- | ----------------------------------------- |
+| `LLM_PROVIDER`                           | `mock`  | `openai` or `neurohub` for real blueprint |
+| `OPENAI_API_KEY` / base URL              | —       | for `openai`                              |
+| `NEUROHUB_API_KEY` / `NEUROHUB_BASE_URL` | —       | for `neurohub` (OpenAI-compatible)        |
+| `FACTORY_SEED`                           | `42`    | deterministic ids/mock                    |
 
 ## V1 swap (not in MVP)
 
-| Interface       | Today                 | V1                                       |
-| --------------- | --------------------- | ---------------------------------------- |
-| `Repository<T>` | in-memory             | Postgres + Drizzle                       |
-| `TaskQueue`     | in-memory + CAS       | Postgres `SKIP LOCKED` or Redis Streams  |
-| `EventBus`      | in-memory             | Redis pub/sub or NATS                    |
-| `tick()`        | manual button + tests | Temporal worker + cron sweepers          |
-| Mock connectors | synthetic data        | OAuth-backed adapters                    |
+| Interface       | Today                          | V1                                      |
+| --------------- | ------------------------------ | --------------------------------------- |
+| `Repository<T>` | in-memory                      | Postgres + Drizzle                      |
+| `TaskQueue`     | in-memory + CAS                | Postgres `SKIP LOCKED` or Redis Streams |
+| `EventBus`      | in-memory                      | Redis pub/sub or NATS                   |
+| `tick()`        | manual button + tests          | Temporal worker + cron sweepers         |
+| Mock connectors | synthetic data                 | OAuth-backed adapters                   |
 | Blueprint LLM   | mock or HTTP OpenAI-compatible | Same + hosted gateways (Neurohub, etc.) |
 
 See [`docs/decisions/ADR-001-tech-stack.md`](./docs/decisions/ADR-001-tech-stack.md) for rationale.

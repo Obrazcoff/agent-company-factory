@@ -1,4 +1,5 @@
 import type { RoleHandler } from '../runtime';
+import { runLlmMarketResearch } from '../llmContentTasks';
 
 type Lead = {
   name: string;
@@ -25,6 +26,17 @@ export const researcherHandler: RoleHandler = async (ctx) => {
     });
     ctx.emit('research', 'completed', `Found ${search.leads.length} leads`);
     return { output: { leads: search.leads } };
+  }
+
+  if (taskKind === 'llm_market_research') {
+    const out = await runLlmMarketResearch({
+      company: ctx.company,
+      task: ctx.task,
+      input,
+      llmGenerate: (m) => ctx.llmGenerate(m),
+      emit: ctx.emit,
+    });
+    return { output: out };
   }
 
   if (taskKind === 'enrich_leads') {

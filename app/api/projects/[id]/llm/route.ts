@@ -53,13 +53,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   }
 }
 
-const NEUROHUB_DEFAULT_BASE_URL =
-  process.env.NEUROHUB_BASE_URL || 'https://ai.nova01.click/neurohub/v1';
+const NEUROHUB_DEFAULT_BASE_URL = process.env.NEUROHUB_BASE_URL || 'https://ai.nova01.click/neurohub/v1';
 const NEUROHUB_DEFAULT_MODEL = process.env.NEUROHUB_MODEL || 'Qwen/Qwen3.5-27B';
 
-function normalizeNeurohubDefaults(
-  parsed: z.infer<typeof PatchSchema>,
-): z.infer<typeof PatchSchema> {
+function normalizeNeurohubDefaults(parsed: z.infer<typeof PatchSchema>): z.infer<typeof PatchSchema> {
   if (parsed.provider !== 'neurohub') return parsed;
   const baseTrim = parsed.baseUrl?.trim() ?? '';
   const modelTrim = parsed.model?.trim() ?? '';

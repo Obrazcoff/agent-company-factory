@@ -26,11 +26,14 @@ export function BlueprintLoadingOverlay({ open, locale, title, subtitle, progres
     let tid: ReturnType<typeof setTimeout>;
 
     const loop = () => {
-      tid = setTimeout(() => {
-        if (cancelled) return;
-        setPhrase(picker());
-        loop();
-      }, MIN_MS + Math.random() * (MAX_MS - MIN_MS));
+      tid = setTimeout(
+        () => {
+          if (cancelled) return;
+          setPhrase(picker());
+          loop();
+        },
+        MIN_MS + Math.random() * (MAX_MS - MIN_MS),
+      );
     };
 
     tid = setTimeout(() => {

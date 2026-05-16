@@ -1,4 +1,5 @@
 import type { RoleHandler } from '../runtime';
+import { runLlmSocialPosts } from '../llmContentTasks';
 import type { Locale } from '@/i18n/constants';
 import { DEFAULT_LOCALE } from '@/i18n/constants';
 import type { Company } from '@/factory/domain/types';
@@ -54,6 +55,17 @@ export const outreachHandler: RoleHandler = async (ctx) => {
   const TEMPLATES = templatesFor(loc);
   const taskKind = ctx.task.kind;
   const input = (ctx.task.input ?? {}) as Record<string, unknown>;
+
+  if (taskKind === 'llm_social_posts') {
+    const out = await runLlmSocialPosts({
+      company: ctx.company,
+      task: ctx.task,
+      input,
+      llmGenerate: (m) => ctx.llmGenerate(m),
+      emit: ctx.emit,
+    });
+    return { output: out };
+  }
 
   if (taskKind === 'draft_outreach') {
     const variant = String(input.variant ?? 'A').toUpperCase();

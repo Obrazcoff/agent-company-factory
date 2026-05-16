@@ -4,7 +4,10 @@ let preflightAgent: Agent | undefined;
 
 function getPreflightAgent(): Agent {
   if (!preflightAgent) {
-    const connect = Math.min(30_000, Math.max(2_000, Number(process.env.LLM_PREFLIGHT_CONNECT_TIMEOUT_MS || 8_000)));
+    const connect = Math.min(
+      30_000,
+      Math.max(2_000, Number(process.env.LLM_PREFLIGHT_CONNECT_TIMEOUT_MS || 8_000)),
+    );
     const short = Math.min(30_000, Math.max(3_000, connect + 2_000));
     preflightAgent = new Agent({
       connectTimeout: connect,
@@ -19,7 +22,10 @@ function getPreflightAgent(): Agent {
  * Cheap reachability check: TLS + HTTP to origin before a large chat/completions body.
  * Fails fast when the host is unroutable (same symptom as ConnectTimeout on the main call).
  */
-export async function preflightLlmOriginReachable(completionsUrl: string, apiKey: string): Promise<{ ms: number }> {
+export async function preflightLlmOriginReachable(
+  completionsUrl: string,
+  apiKey: string,
+): Promise<{ ms: number }> {
   const u = new URL(completionsUrl);
   const probe = `${u.origin}/`;
   const t0 = Date.now();
